@@ -11,7 +11,9 @@ This module provides a secure authentication interface for managing SPHINCS+ cry
 `./build.sh`
 
 ### Package and publish
-`cd dist`
-`npm pack`
-`npm login`
-`npm publish`
+```
+cd dist
+npm pack
+npm login
+npm publish
+```
