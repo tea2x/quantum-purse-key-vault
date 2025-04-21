@@ -1028,6 +1028,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "quantum-purse-key-vault"
+version = "0.1.0"
+dependencies = [
+ "aes-gcm",
+ "bip39",
+ "ckb-fips205-utils",
+ "ckb-mock-tx-types",
+ "fips205",
+ "getrandom 0.2.15",
+ "getrandom 0.3.2",
+ "hex",
+ "indexed_db_futures",
+ "scrypt",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "zeroize",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.40"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1233,29 +1256,6 @@ name = "smallvec"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8917285742e9f3e1683f0a9c4e6b57960b7314d0b08d30d1ecd426713ee2eee9"
-
-[[package]]
-name = "sphincs-plus-key-vault-web"
-version = "0.1.1"
-dependencies = [
- "aes-gcm",
- "bip39",
- "ckb-fips205-utils",
- "ckb-mock-tx-types",
- "fips205",
- "getrandom 0.2.15",
- "getrandom 0.3.2",
- "hex",
- "indexed_db_futures",
- "scrypt",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
- "zeroize",
-]
 
 [[package]]
 name = "subtle"
