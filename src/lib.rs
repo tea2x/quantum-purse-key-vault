@@ -99,7 +99,7 @@ impl KeyVault {
     ///
     /// **Async**: Yes
     #[wasm_bindgen]
-    pub async fn clear_database() -> Result<(), JsValue> {
+    pub async fn clear_database(&self) -> Result<(), JsValue> {
         let db = db::open_db().await.map_err(|e| e.to_jsvalue())?;
         db::clear_object_store(&db, SEED_PHRASE_STORE)
             .await
@@ -118,7 +118,7 @@ impl KeyVault {
     ///
     /// **Async**: Yes
     #[wasm_bindgen]
-    pub async fn get_all_sphincs_lock_args() -> Result<Vec<String>, JsValue> {
+    pub async fn get_all_sphincs_lock_args(&self) -> Result<Vec<String>, JsValue> {
         /// Error conversion helper
         fn map_db_error<T>(result: Result<T, DBError>) -> Result<T, JsValue> {
             result.map_err(|e| JsValue::from_str(&format!("Database error: {}", e)))
@@ -209,7 +209,7 @@ impl KeyVault {
             .ok_or_else(|| JsValue::from_str("Mnemonic phrase not found"))?;
         let seed = decrypt(&password, payload)?;
 
-        let index = Self::get_all_sphincs_lock_args().await?.len() as u32;
+        let index = self.get_all_sphincs_lock_args().await?.len() as u32;
         let (pub_key, pri_key) = self
             .derive_sphincs_keys(&seed, index)
             .map_err(|e| JsValue::from_str(&format!("Key derivation error: {}", e)))?;
@@ -302,7 +302,7 @@ impl KeyVault {
     /// **Warning**: Exporting the mnemonic exposes it in JavaScript, which may pose a security risk.
     /// Proper zeroization of exported seed phrase is the responsibility of the caller.
     #[wasm_bindgen]
-    pub async fn export_seed_phrase(password: Uint8Array) -> Result<Uint8Array, JsValue> {
+    pub async fn export_seed_phrase(&self, password: Uint8Array) -> Result<Uint8Array, JsValue> {
         let password = SecureVec::from_slice(&password.to_vec());
         let payload = db::get_encrypted_mnemonic_seed()
             .await
