@@ -272,10 +272,12 @@ impl KeyVault {
         }
 
         let mut combined_entropy = Vec::new();
+        let mut index: u8 = 0;
         for chunk in words.chunks(24) {
+            index += 1;
             let chunk_str = chunk.join(" ");
             let mnemonic = Mnemonic::parse_in(Language::English, &chunk_str)
-                .map_err(|e| JsValue::from_str(&format!("Invalid mnemonic chunk: {}", e)))?;
+                .map_err(|e| JsValue::from_str(&format!("Invalid mnemonic: Chunk {}: {}", index, e)))?;
             let entropy = mnemonic.to_entropy();
             combined_entropy.extend_from_slice(&entropy);
         }
