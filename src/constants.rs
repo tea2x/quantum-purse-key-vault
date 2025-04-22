@@ -4,8 +4,8 @@ use super::types::ScryptParam;
 pub const SALT_LENGTH: usize = 16; // 128-bit salt
 pub const IV_LENGTH: usize = 12; // 96-bit IV for AES-GCM
 pub const DB_NAME: &str = "quantum_purse";
-pub const SEED_PHRASE_KEY: &str = "seed_phrase";
-pub const SEED_PHRASE_STORE: &str = "seed_phrase_store";
+pub const MASTER_SEED_KEY: &str = "master_seed";
+pub const MASTER_SEED_STORE: &str = "master_seed_store";
 pub const CHILD_KEYS_STORE: &str = "child_keys_store";
 pub const KDF_PATH_PREFIX: &str = "ckb/quantum-purse/sphincs-plus/";
 

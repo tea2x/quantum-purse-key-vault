@@ -1,7 +1,7 @@
 mod errors;
 
 use super::types::{CipherPayload, SphincsPlusAccount};
-use crate::constants::{CHILD_KEYS_STORE, DB_NAME, SEED_PHRASE_KEY, SEED_PHRASE_STORE};
+use crate::constants::{CHILD_KEYS_STORE, DB_NAME, MASTER_SEED_KEY, MASTER_SEED_STORE};
 use errors::KeyVaultDBError;
 use indexed_db_futures::{
     database::Database, error::Error as DBError, prelude::*, transaction::TransactionMode,
@@ -20,9 +20,9 @@ pub async fn open_db() -> Result<Database, KeyVaultDBError> {
         .with_on_upgrade_needed(|_event, db| {
             if !db
                 .object_store_names()
-                .any(|name| name == SEED_PHRASE_STORE)
+                .any(|name| name == MASTER_SEED_STORE)
             {
-                db.create_object_store(SEED_PHRASE_STORE).build()?;
+                db.create_object_store(MASTER_SEED_STORE).build()?;
             }
             if !db.object_store_names().any(|name| name == CHILD_KEYS_STORE) {
                 db.create_object_store(CHILD_KEYS_STORE).build()?;
@@ -33,48 +33,48 @@ pub async fn open_db() -> Result<Database, KeyVaultDBError> {
         .map_err(|e| KeyVaultDBError::DatabaseError(format!("Failed to open IndexedDB: {}", e)))
 }
 
-/// Stores the encrypted mnemonic phrase in the database.
+/// Stores the encrypted master seed in the database.
 ///
 /// **Parameters**:
-/// - `payload: CipherPayload` - The encrypted mnemonic phrase data to store.
+/// - `payload: CipherPayload` - The encrypted master seed data to store.
 ///
 /// **Returns**:
 /// - `Result<(), KeyVaultDBError>` - Ok on success, or an error if storage fails.
 ///
 /// **Async**: Yes
 ///
-/// **Warning**: This method overwrites the existing mnemonic phrase in the database.
-pub async fn set_encrypted_mnemonic_seed(payload: CipherPayload) -> Result<(), KeyVaultDBError> {
+/// **Warning**: This method overwrites the existing master seed in the database.
+pub async fn set_encrypted_seed(payload: CipherPayload) -> Result<(), KeyVaultDBError> {
     let db = open_db().await?;
     let tx = db
-        .transaction(SEED_PHRASE_STORE)
+        .transaction(MASTER_SEED_STORE)
         .with_mode(TransactionMode::Readwrite)
         .build()?;
-    let store = tx.object_store(SEED_PHRASE_STORE)?;
+    let store = tx.object_store(MASTER_SEED_STORE)?;
 
     let js_value = serde_wasm_bindgen::to_value(&payload)?;
 
-    store.put(&js_value).with_key(SEED_PHRASE_KEY).await?;
+    store.put(&js_value).with_key(MASTER_SEED_KEY).await?;
     tx.commit().await?;
     Ok(())
 }
 
-/// Retrieves the encrypted mnemonic phrase from the database.
+/// Retrieves the encrypted masterseed from the database.
 ///
 /// **Returns**:
-/// - `Result<Option<CipherPayload>, KeyVaultDBError>` - The encrypted mnemonic phrase if it exists, `None` if not found, or an error if retrieval fails.
+/// - `Result<Option<CipherPayload>, KeyVaultDBError>` - The encrypted master seed if it exists, `None` if not found, or an error if retrieval fails.
 ///
 /// **Async**: Yes
-pub async fn get_encrypted_mnemonic_seed() -> Result<Option<CipherPayload>, KeyVaultDBError> {
+pub async fn get_encrypted_seed() -> Result<Option<CipherPayload>, KeyVaultDBError> {
     let db = open_db().await?;
     let tx = db
-        .transaction(SEED_PHRASE_STORE)
+        .transaction(MASTER_SEED_STORE)
         .with_mode(TransactionMode::Readonly)
         .build()?;
-    let store = tx.object_store(SEED_PHRASE_STORE)?;
+    let store = tx.object_store(MASTER_SEED_STORE)?;
 
     if let Some(js_value) = store
-        .get(SEED_PHRASE_KEY)
+        .get(MASTER_SEED_KEY)
         .await
         .map_err(|e| KeyVaultDBError::DatabaseError(e.to_string()))?
     {

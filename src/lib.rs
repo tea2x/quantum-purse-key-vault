@@ -34,7 +34,7 @@ mod utilities;
 
 use crate::constants::{
     CHILD_KEYS_STORE, KDF_PATH_PREFIX, MULTISIG_RESERVED_FIELD_VALUE, PUBKEY_NUM, REQUIRED_FIRST_N,
-    SEED_PHRASE_STORE, THRESHOLD,
+    MASTER_SEED_STORE, THRESHOLD,
 };
 use secure_vec::SecureVec;
 use types::*;
@@ -60,10 +60,10 @@ impl KeyVault {
         KeyVault { variant: variant }
     }
 
-    /// To derive Sphincs key pair. One master mnemonic seed phrase can derive multiple child index-based sphincs+ key pairs on demand.
+    /// To derive Sphincs key pair. One master seed can derive multiple child index-based sphincs+ key pairs on demand.
     ///
     /// **Parameters**:
-    /// - `seed: &[u8]` - The master mnemonic seed phrase from which the child sphincs+ key is derived. MUST carry at least N*3 bytes of entropy or panics.
+    /// - `seed: &[u8]` - The master seed from which the child sphincs+ key is derived. MUST carry at least N*3 bytes of entropy or panics.
     /// - `index: u32` - The index of the child sphincs+ key to be derived.
     ///
     /// **Returns**:
@@ -101,7 +101,7 @@ impl KeyVault {
     #[wasm_bindgen]
     pub async fn clear_database(&self) -> Result<(), JsValue> {
         let db = db::open_db().await.map_err(|e| e.to_jsvalue())?;
-        db::clear_object_store(&db, SEED_PHRASE_STORE)
+        db::clear_object_store(&db, MASTER_SEED_STORE)
             .await
             .map_err(|e| e.to_jsvalue())?;
         db::clear_object_store(&db, CHILD_KEYS_STORE)
@@ -153,45 +153,55 @@ impl KeyVault {
         Ok(lock_args_array)
     }
 
-    /// Initializes the mnemonic phrase by generating a BIP39 mnemonic, encrypting it with the provided password, and storing it in IndexedDB.
+    /// Check if there's a master seed stored in the indexDB.
+    ///
+    /// **Returns**:
+    /// - `Result<bool, JsValue>` - A JavaScript Promise that resolves to `true` if a master seed exists,
+    ///   or `false` if it doesn't.
+    ///
+    /// **Async**: Yes
+    #[wasm_bindgen]
+    pub async fn has_master_seed(&self) -> Result<bool, JsValue> {
+        let stored_seed = db::get_encrypted_seed()
+            .await
+            .map_err(|e| e.to_jsvalue())?;
+        Ok(stored_seed.is_some())
+    }
+
+    /// Generates master seed for your wallet, encrypts it with the provided password, and stores it in IndexedDB.
     ///
     /// **Parameters**:
-    /// - `password: Uint8Array` - The password used to encrypt the mnemonic.
+    /// - `password: Uint8Array` - The password used to encrypt the generated master seed.
     ///
     /// **Returns**:
     /// - `Result<(), JsValue>` - A JavaScript Promise that resolves to `undefined` on success,
     ///   or rejects with a JavaScript error on failure.
     ///
     /// **Async**: Yes
-    ///
-    /// **Note**: Only effective when the mnemonic phrase is not yet set.
     #[wasm_bindgen]
-    pub async fn init_seed_phrase(&self, password: Uint8Array) -> Result<(), JsValue> {
-        let stored_seed = db::get_encrypted_mnemonic_seed()
-            .await
-            .map_err(|e| e.to_jsvalue())?;
-        if stored_seed.is_some() {
-            debug!("\x1b[37;44m INFO \x1b[0m \x1b[1mkey-vault\x1b[0m: mnemonic phrase exists");
-            return Ok(());
+    pub async fn generate_master_seed(&self, password: Uint8Array) -> Result<(), JsValue> {
+        if self.has_master_seed().await? {
+            return Err(JsValue::from_str("Master seed already exists"));
         }
 
         let size = self.variant.bip39_compatible_entropy_size();
-        let entropy = get_random_bytes(size).unwrap();
+        let entropy = get_random_bytes(size)
+            .map_err(|e| JsValue::from_str(&format!("Failed generating master seed: {}", e)))?;
         let password = SecureVec::from_slice(&password.to_vec());
         let encrypted_seed = encrypt(&password, entropy.as_ref())
             .map_err(|e| JsValue::from_str(&format!("Encryption error: {}", e)))?;
 
-        db::set_encrypted_mnemonic_seed(encrypted_seed)
+        db::set_encrypted_seed(encrypted_seed)
             .await
             .map_err(|e| e.to_jsvalue())?;
         Ok(())
     }
 
-    /// Generates a new SPHINCS+ account - a SPHINCS+ child account derived from the mnemonic phrase,
+    /// Generates a new SPHINCS+ account - a SPHINCS+ child account derived from the master seed,
     /// encrypts the private key with the password, and stores/appends it in IndexedDB.
     ///
     /// **Parameters**:
-    /// - `password: Uint8Array` - The password used to decrypt the mnemonic phrase and encrypt the child private key.
+    /// - `password: Uint8Array` - The password used to decrypt the master seed and encrypt the child private key.
     ///
     /// **Returns**:
     /// - `Result<String, JsValue>` - A String Promise that resolves to the hex-encoded SPHINCS+ lock argument (processed SPHINCS+ public key) of the account on success,
@@ -202,11 +212,11 @@ impl KeyVault {
     pub async fn gen_new_account(&self, password: Uint8Array) -> Result<String, JsValue> {
         let password = SecureVec::from_slice(&password.to_vec());
 
-        // Get and decrypt the mnemonic seed phrase
-        let payload = db::get_encrypted_mnemonic_seed()
+        // Get and decrypt the master seed
+        let payload = db::get_encrypted_seed()
             .await
             .map_err(|e| e.to_jsvalue())?
-            .ok_or_else(|| JsValue::from_str("Mnemonic phrase not found"))?;
+            .ok_or_else(|| JsValue::from_str("Master seed not found"))?;
         let seed = decrypt(&password, payload)?;
 
         let index = self.get_all_sphincs_lock_args().await?.len() as u32;
@@ -230,11 +240,11 @@ impl KeyVault {
         Ok(encode(lock_script_args))
     }
 
-    /// Imports a mnemonic by encrypting it with the provided password and storing it as the mnemonic phrase.
+    /// Imports master seed then encrypting it with the provided password.
     ///
     /// **Parameters**:
-    /// - `seed_phrase: Uint8Array` - The mnemonic phrase as a UTF-8 encoded Uint8Array to import.
-    /// - `password: Uint8Array` - The password used to encrypt the mnemonic.
+    /// - `seed_phrase: Uint8Array` - The mnemonic phrase as a UTF-8 encoded Uint8Array to import. There're only 2 options accepted: 48 or 72 words.
+    /// - `password: Uint8Array` - The password used to encrypt the translated master seed.
     ///
     /// **Returns**:
     /// - `Result<(), JsValue>` - A JavaScript Promise that resolves to `undefined` on success,
@@ -282,16 +292,16 @@ impl KeyVault {
         }
 
         let encrypted_seed = encrypt(&password, &combined_entropy)?;
-        db::set_encrypted_mnemonic_seed(encrypted_seed)
+        db::set_encrypted_seed(encrypted_seed)
             .await
             .map_err(|e| e.to_jsvalue())?;
         Ok(())
     }
 
-    /// Exports the mnemonic phrase by decrypting it with the provided password.
+    /// Exports the master seed in the form of a custom bip39 mnemonic phrase (ony 48 words or 72 words).
     ///
     /// **Parameters**:
-    /// - `password: Uint8Array` - The password used to decrypt the mnemonic.
+    /// - `password: Uint8Array` - The password used to decrypt the master seed.
     ///
     /// **Returns**:
     /// - `Result<Uint8Array, JsValue>` - A JavaScript Promise that resolves to the mnemonic as a UTF-8 encoded `Uint8Array` on success,
@@ -304,10 +314,10 @@ impl KeyVault {
     #[wasm_bindgen]
     pub async fn export_seed_phrase(&self, password: Uint8Array) -> Result<Uint8Array, JsValue> {
         let password = SecureVec::from_slice(&password.to_vec());
-        let payload = db::get_encrypted_mnemonic_seed()
+        let payload = db::get_encrypted_seed()
             .await
             .map_err(|e| e.to_jsvalue())?
-            .ok_or_else(|| JsValue::from_str("Mnemonic phrase not found"))?;
+            .ok_or_else(|| JsValue::from_str("Master seed not found"))?;
 
         let entropy = decrypt(&password, payload)?;
         let chunks = entropy.chunks(32);
@@ -365,10 +375,10 @@ impl KeyVault {
         }
     }
 
-    /// Supporting wallet recovery - derives a list of lock script arguments (processed public keys) from the seed phrase starting from a given index.
+    /// Supporting wallet recovery - quickly derives a list of lock script arguments (processed public keys).
     ///
     /// **Parameters**:
-    /// - `password: Uint8Array` - The password used to decrypt the mnemonic.
+    /// - `password: Uint8Array` - The password used to decrypt the master seed used for account generation.
     /// - `start_index: u32` - The starting index for derivation.
     /// - `count: u32` - The number of sequential lock scripts arguments to derive.
     ///
@@ -383,11 +393,11 @@ impl KeyVault {
         count: u32,
     ) -> Result<Vec<String>, JsValue> {
         let password = SecureVec::from_slice(&password.to_vec());
-        // Get and decrypt the mnemonic seed phrase
-        let payload = db::get_encrypted_mnemonic_seed()
+        // Get and decrypt the master seed
+        let payload = db::get_encrypted_seed()
             .await
             .map_err(|e| e.to_jsvalue())?
-            .ok_or_else(|| JsValue::from_str("Mnemonic phrase not found"))?;
+            .ok_or_else(|| JsValue::from_str("Master seed not found"))?;
         let seed = decrypt(&password, payload)?;
         let mut lock_args_array: Vec<String> = Vec::new();
         for i in start_index..(start_index + count) {
@@ -405,7 +415,7 @@ impl KeyVault {
     /// Supporting wallet recovery - Recovers the wallet by deriving and storing private keys for the first N accounts.
     ///
     /// **Parameters**:
-    /// - `password: Uint8Array` - The password used to decrypt the seed phrase.
+    /// - `password: Uint8Array` - The password used to decrypt the master seed.
     /// - `count: u32` - The number of accounts to recover (from index 0 to count-1).
     ///
     /// **Returns**:
@@ -419,11 +429,11 @@ impl KeyVault {
         count: u32,
     ) -> Result<Vec<String>, JsValue> {
         let password = SecureVec::from_slice(&password.to_vec());
-        // Get and decrypt the mnemonic seed phrase
-        let payload = db::get_encrypted_mnemonic_seed()
+        // Get and decrypt the master seed
+        let payload = db::get_encrypted_seed()
             .await
             .map_err(|e| e.to_jsvalue())?
-            .ok_or_else(|| JsValue::from_str("Mnemonic phrase not found"))?;
+            .ok_or_else(|| JsValue::from_str("Master seed not found"))?;
         let mut lock_args_array: Vec<String> = Vec::new();
         let seed = decrypt(&password, payload)?;
         for i in 0..count {
