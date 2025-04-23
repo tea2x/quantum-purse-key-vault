@@ -15,17 +15,15 @@ This module provides a secure authentication interface for managing SPHINCS+ cry
 | **Password hashing** | Scrypt |
 
 ### Custom BIP39
-SPHINCS+ has 12 parameter sets, catergorized in 3 security levels 128bit, 192bit and 256bit security that require 48bytes, 72bytes and 96bytes seeds respectively in key generation and signing.
+SPHINCS+ offers 12 parameter sets, grouped into three security levels: 128-bit, 192-bit, and 256-bit. These require seeds of 48 bytes, 72 bytes, and 96 bytes respectively, used across key generation and signing.
 
-BIP39 by maximum only support 32byte which is equivalent to 24 words.
+This library introduces a custom mnemonic backup format that splits the required seed into three distinct chunks, each derived from a separate BIP39 mnemonic phrase. The type of each phrase is determined by word count, corresponding to the entropy needs of the SPHINCS+ variant:
 
-This library combine multiple chunks of 32byte-24word mnemonic phrase to use the seed backup format. This leads to the following definition of the seed length for 3 SPHINCS+ categories:
-
-|SPHINCS+ level|BIP39 level|word count|
-|--------|---------|----------------|
-|48 bytes| 3*16byte| 3*12 = 36 words|
-|72 bytes| 3*24byte| 3*18 = 54 words|
-|96 bytes| 3*32byte| 3*24 = 72 words|
+|SPHINCS+ level|BIP39 level|word count      |
+|--------------|-----------|----------------|
+|128 ~ 48 bytes| 3*16byte  | 3*12 = 36 words|
+|192 ~ 72 bytes| 3*24byte  | 3*18 = 54 words|
+|256 ~ 96 bytes| 3*32byte  | 3*24 = 72 words|
 
 ### Dependency
 - Rust & Cargo

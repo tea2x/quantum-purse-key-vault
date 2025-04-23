@@ -57,18 +57,33 @@ pub enum SphincsVariant {
 }
 
 impl SphincsVariant {
-    /// BIP39 accepts entropy levels that is a multiple of 32 bytes.
-    /// Here're the entropy levels Quantum Purse chooses for all SPHINCS+ param sets that's BIP39 compatible:
-    ///     - For 128* variant, 48 bytes entropy required so 64(2*32) bytes is chosen (~ 48 words).
-    ///     - For 192* variant, 72 bytes entropy required so 96(3*32) bytes is chosen (~ 72 words).
-    ///     - For 256* variant, 96 bytes entropy required so 96(3*32) bytes is chosen (~ 72 words).
-    /// Extra bytes are truncated in case of 128* and 192* variants.
-    ///
-    pub fn bip39_compatible_entropy_size(&self) -> usize {
+    // Each seed in the SPHINCS+ input seed trio {sk_seed, sk_prf, pk_seed} needs this amount of entropy in byte
+    pub fn required_entropy_size_component(&self) -> usize {
         match self {
-            Self::Sha2128F | Self::Sha2128S | Self::Shake128F | Self::Shake128S => 2 * 32,
-            _ => 3 * 32,
+            Self::Sha2128F | Self::Sha2128S | Self::Shake128F | Self::Shake128S => 16,
+            Self::Sha2192F | Self::Sha2192S | Self::Shake192F | Self::Shake192S => 24,
+            _ => 32,
         }
+    }
+
+    // The whole SPHINCS+ seed backup seed/ the trio {sk_seed, sk_prf, pk_seed} needs this much of entropy in byte
+    pub fn required_entropy_size_total(&self) -> usize {
+        self.required_entropy_size_component() * 3
+    }
+
+    // Mapping each SPHINCS+ variant to the corresponding bip39 type (differentiated by word count)
+    // Each word count option below contain the corresponding entropy defined in `required_entropy_size_component`
+    pub fn required_bip39_size_in_word_component(&self) -> usize {
+        match self {
+            Self::Sha2128F | Self::Sha2128S | Self::Shake128F | Self::Shake128S => 12,
+            Self::Sha2192F | Self::Sha2192S | Self::Shake192F | Self::Shake192S => 18,
+            _ => 24,
+        }
+    }
+
+    // The whole SPHINCS+ seed backup seed/ the trio {sk_seed, sk_prf, pk_seed} will need this much of words in BIP39 standard
+    pub fn required_bip39_size_in_word_total(&self) -> usize {
+        self.required_bip39_size_in_word_component() * 3
     }
 }
 
