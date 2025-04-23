@@ -184,7 +184,7 @@ impl KeyVault {
             return Err(JsValue::from_str("Master seed already exists"));
         }
 
-        let size = self.variant.bip39_compatible_entropy_size();
+        let size = self.variant.required_entropy_size_total();
         let entropy = get_random_bytes(size)
             .map_err(|e| JsValue::from_str(&format!("Failed generating master seed: {}", e)))?;
         let password = SecureVec::from_slice(&password.to_vec());
@@ -267,27 +267,34 @@ impl KeyVault {
 
         let words: Vec<&str> = seed_phrase_str.split_whitespace().collect();
         let word_count = words.len();
-        if word_count != 48 && word_count != 72 {
-            return Err(JsValue::from_str("Mnemonic must have 48 or 72 words"));
+
+        if word_count != self.variant.required_bip39_size_in_word_total() {
+            return Err(JsValue::from_str(&format!(
+                "Mismatch: The chosen SPHINCS+ parameter set {} requires {} words whereas the input mnemonic has {} words.",
+                self.variant,
+                self.variant.required_bip39_size_in_word_total(),
+                word_count
+            )));
         }
 
         let mut combined_entropy = Vec::new();
         let mut index: u8 = 0;
-        for chunk in words.chunks(24) {
+        let size = self.variant.required_bip39_size_in_word_component();
+        for chunk in words.chunks(size) {
             index += 1;
             let chunk_str = chunk.join(" ");
             let mnemonic = Mnemonic::parse_in(Language::English, &chunk_str)
-                .map_err(|e| JsValue::from_str(&format!("Invalid mnemonic: Chunk {}: {}", index, e)))?;
+                .map_err(|e| JsValue::from_str(&format!("Invalid mnemonic: Chunk{} index {}: {}", size, index, e)))?;
             let entropy = mnemonic.to_entropy();
             combined_entropy.extend_from_slice(&entropy);
         }
 
-        if combined_entropy.len() < self.variant.bip39_compatible_entropy_size() {
+        if combined_entropy.len() < self.variant.required_entropy_size_total() {
             return Err(JsValue::from(
                 format!(
                     "Insufficient entropy: the input seed phrase got {} bytes, but at least {} bytes are required for the chosen SPHINCS+ parameter set {}.",
                     combined_entropy.len(),
-                    self.variant.bip39_compatible_entropy_size(),
+                    self.variant.required_entropy_size_total(),
                     self.variant
                 )
             ));
@@ -314,7 +321,7 @@ impl KeyVault {
     /// **Warning**: Exporting the mnemonic exposes it in JavaScript, which may pose a security risk.
     /// Proper zeroization of exported seed phrase is the responsibility of the caller.
     #[wasm_bindgen]
-    pub async fn export_seed_phrase(password: Uint8Array) -> Result<Uint8Array, JsValue> {
+    pub async fn export_seed_phrase(&self, password: Uint8Array) -> Result<Uint8Array, JsValue> {
         let password = SecureVec::from_slice(&password.to_vec());
         let payload = db::get_encrypted_seed()
             .await
@@ -322,7 +329,8 @@ impl KeyVault {
             .ok_or_else(|| JsValue::from_str("Master seed not found"))?;
 
         let entropy = decrypt(&password, payload)?;
-        let chunks = entropy.chunks(32);
+        let size = self.variant.required_entropy_size_component();
+        let chunks = entropy.chunks(size);
         let mut mnemonics = Vec::new();
         for chunk in chunks {
             let mnemonic = Mnemonic::from_entropy_in(Language::English, chunk).unwrap();
