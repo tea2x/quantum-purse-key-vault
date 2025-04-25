@@ -17,6 +17,10 @@ impl SecureVec {
     pub fn from_slice(slice: &[u8]) -> Self {
       SecureVec(slice.to_vec())
     }
+
+    pub fn extend_from_slice(&mut self, slice: &[u8]) {
+        self.0.extend_from_slice(slice);
+    }
 }
 
 impl Zeroize for SecureVec {

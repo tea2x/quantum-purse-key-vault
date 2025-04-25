@@ -97,7 +97,7 @@ export class KeyVault {
    * Imports master seed then encrypting it with the provided password.
    *
    * **Parameters**:
-   * - `seed_phrase: Uint8Array` - The mnemonic phrase as a UTF-8 encoded Uint8Array to import. There're only 2 options accepted: 48 or 72 words.
+   * - `seed_phrase: Uint8Array` - The mnemonic phrase as a valid UTF-8 encoded Uint8Array to import. There're only 3 options accepted: 36, 54 or 72 words.
    * - `password: Uint8Array` - The password used to encrypt the translated master seed.
    *
    * **Returns**:
@@ -110,7 +110,7 @@ export class KeyVault {
    */
   import_seed_phrase(seed_phrase: Uint8Array, password: Uint8Array): Promise<void>;
   /**
-   * Exports the master seed in the form of a custom bip39 mnemonic phrase (ony 48 words or 72 words).
+   * Exports the master seed in the form of a custom bip39 mnemonic phrase. There're only 3 options: 36, 54 or 72 words.
    *
    * **Parameters**:
    * - `password: Uint8Array` - The password used to decrypt the master seed.
@@ -124,7 +124,7 @@ export class KeyVault {
    * **Warning**: Exporting the mnemonic exposes it in JavaScript, which may pose a security risk.
    * Proper zeroization of exported seed phrase is the responsibility of the caller.
    */
-  static export_seed_phrase(password: Uint8Array): Promise<Uint8Array>;
+  export_seed_phrase(password: Uint8Array): Promise<Uint8Array>;
   /**
    * Signs a message using the SPHINCS+ private key after decrypting it with the provided password.
    *
@@ -204,4 +204,18 @@ export class Util {
    */
   static password_checker(password: Uint8Array): number;
 }
+
+/**
+* If `module_or_path` is {RequestInfo} or {URL}, makes a request and
+* for everything else, calls `WebAssembly.instantiate` directly.
+*
+* @param {{ module_or_path: InitInput | Promise<InitInput> }} module_or_path - Passing `InitInput` directly is deprecated.
+*
+* @returns {Promise<InitOutput>}
+*/
+export default function __wbg_init (module_or_path?: { module_or_path: InitInput | Promise<InitInput> } | InitInput | Promise<InitInput>): Promise<InitOutput>;
 ```
+
+## Example
+
+Refer to [QuantumPurse project](https://github.com/tea2x/quantum-purse-web-static.git)

@@ -1,6 +1,6 @@
 [package]
 name = "quantum-purse-key-vault"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 
 description = "A SPHINCS+ key management library for Quantum Purse"
