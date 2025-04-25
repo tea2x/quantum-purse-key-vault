@@ -8,7 +8,7 @@ This module provides a secure authentication interface for managing SPHINCS+ cry
 |--------------------|---------|
 | **Signature type** | SPHINCS+ |
 | **Store model**    | Indexed DB |
-| **Mnemonic standard**| Custom BIP39 |
+| **Mnemonic standard**| Custom BIP39 English |
 | **Local encryption** | AES256 |
 | **Key derivation** | Scrypt |
 | **Authentication** | Password |
@@ -31,10 +31,19 @@ This library introduces a custom mnemonic backup format that splits the required
 - Npm
 
 ### Build
-`./build.sh`
+```shell
+# init submodule quantum-resistant-lockscript
+git submodule update --init
+
+# run build script
+./build.sh
+
+# test
+cargo test
+```
 
 ### Package and publish
-```
+```shell
 cd dist
 npm pack
 npm login

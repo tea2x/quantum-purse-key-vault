@@ -33,8 +33,8 @@ mod types;
 mod utilities;
 
 use crate::constants::{
-    CHILD_KEYS_STORE, KDF_PATH_PREFIX, MULTISIG_RESERVED_FIELD_VALUE, PUBKEY_NUM, REQUIRED_FIRST_N,
-    MASTER_SEED_STORE, THRESHOLD,
+    CHILD_KEYS_STORE, KDF_PATH_PREFIX, MASTER_SEED_STORE, MULTISIG_RESERVED_FIELD_VALUE,
+    PUBKEY_NUM, REQUIRED_FIRST_N, THRESHOLD,
 };
 use secure_vec::SecureVec;
 use types::*;
@@ -162,9 +162,7 @@ impl KeyVault {
     /// **Async**: Yes
     #[wasm_bindgen]
     pub async fn has_master_seed(&self) -> Result<bool, JsValue> {
-        let stored_seed = db::get_encrypted_seed()
-            .await
-            .map_err(|e| e.to_jsvalue())?;
+        let stored_seed = db::get_encrypted_seed().await.map_err(|e| e.to_jsvalue())?;
         Ok(stored_seed.is_some())
     }
 
@@ -243,7 +241,7 @@ impl KeyVault {
     /// Imports master seed then encrypting it with the provided password.
     ///
     /// **Parameters**:
-    /// - `seed_phrase: Uint8Array` - The mnemonic phrase as a UTF-8 encoded Uint8Array to import. There're only 2 options accepted: 48 or 72 words.
+    /// - `seed_phrase: Uint8Array` - The mnemonic phrase as a valid UTF-8 encoded Uint8Array to import. There're only 3 options accepted: 36, 54 or 72 words.
     /// - `password: Uint8Array` - The password used to encrypt the translated master seed.
     ///
     /// **Returns**:
@@ -262,7 +260,7 @@ impl KeyVault {
         let password = SecureVec::from_slice(&password.to_vec());
 
         let seed_phrase_bytes = seed_phrase.to_vec();
-        let seed_phrase_str = String::from_utf8(seed_phrase_bytes)
+        let mut seed_phrase_str = String::from_utf8(seed_phrase_bytes)
             .map_err(|e| JsValue::from_str(&format!("Invalid UTF-8: {}", e)))?;
 
         let words: Vec<&str> = seed_phrase_str.split_whitespace().collect();
@@ -277,28 +275,28 @@ impl KeyVault {
             )));
         }
 
-        let mut combined_entropy = Vec::new();
+        let mut combined_entropy = SecureVec::new_with_length(0);
         let mut index: u8 = 0;
         let size = self.variant.required_bip39_size_in_word_component();
         for chunk in words.chunks(size) {
             index += 1;
-            let chunk_str = chunk.join(" ");
-            let mnemonic = Mnemonic::parse_in(Language::English, &chunk_str)
-                .map_err(|e| JsValue::from_str(&format!("Invalid mnemonic: Chunk{} index {}: {}", size, index, e)))?;
-            let entropy = mnemonic.to_entropy();
-            combined_entropy.extend_from_slice(&entropy);
+            let mut chunk_str = chunk.join(" ");
+            let mnemonic = match Mnemonic::parse_in(Language::English, &chunk_str) {
+                Ok(m) => {m},
+                Err(e) => {
+                    chunk_str.zeroize();
+                    seed_phrase_str.zeroize();
+                    return Err(JsValue::from_str(&format!(
+                        "Invalid mnemonic: Chunk{} index {}: {}",
+                        size, index, e
+                    )));
+                }
+            };
+            chunk_str.zeroize();
+            let entropy = SecureVec::from_slice(&mnemonic.to_entropy());
+            combined_entropy.extend_from_slice(entropy.as_ref());
         }
-
-        if combined_entropy.len() < self.variant.required_entropy_size_total() {
-            return Err(JsValue::from(
-                format!(
-                    "Insufficient entropy: the input seed phrase got {} bytes, but at least {} bytes are required for the chosen SPHINCS+ parameter set {}.",
-                    combined_entropy.len(),
-                    self.variant.required_entropy_size_total(),
-                    self.variant
-                )
-            ));
-        }
+        seed_phrase_str.zeroize();
 
         let encrypted_seed = encrypt(&password, &combined_entropy)?;
         db::set_encrypted_seed(encrypted_seed)
@@ -307,7 +305,7 @@ impl KeyVault {
         Ok(())
     }
 
-    /// Exports the master seed in the form of a custom bip39 mnemonic phrase (ony 48 words or 72 words).
+    /// Exports the master seed in the form of a custom bip39 mnemonic phrase. There're only 3 options: 36, 54 or 72 words.
     ///
     /// **Parameters**:
     /// - `password: Uint8Array` - The password used to decrypt the master seed.
@@ -320,6 +318,8 @@ impl KeyVault {
     ///
     /// **Warning**: Exporting the mnemonic exposes it in JavaScript, which may pose a security risk.
     /// Proper zeroization of exported seed phrase is the responsibility of the caller.
+    /// 
+    /// **Async**: Yes
     #[wasm_bindgen]
     pub async fn export_seed_phrase(&self, password: Uint8Array) -> Result<Uint8Array, JsValue> {
         let password = SecureVec::from_slice(&password.to_vec());
@@ -333,10 +333,17 @@ impl KeyVault {
         let chunks = entropy.chunks(size);
         let mut mnemonics = Vec::new();
         for chunk in chunks {
-            let mnemonic = Mnemonic::from_entropy_in(Language::English, chunk).unwrap();
+            let mnemonic = match Mnemonic::from_entropy_in(Language::English, chunk) {
+                Ok(m) => {m},
+                Err(e) => {
+                    mnemonics.zeroize();
+                    return Err(JsValue::from_str(&format!("Export seed error: {}", e)));
+                }
+            };
             mnemonics.push(mnemonic.to_string());
         }
         let combined_mnemonics = mnemonics.join(" ");
+        mnemonics.zeroize();
 
         Ok(Uint8Array::from(combined_mnemonics.as_ref()))
     }
@@ -395,6 +402,8 @@ impl KeyVault {
     /// **Returns**:
     /// - `Result<Vec<String>, JsValue>` - A list of lock script arguments on success,
     ///   or a JavaScript error on failure.
+    /// 
+    /// **Async**: Yes
     #[wasm_bindgen]
     pub async fn try_gen_account_batch(
         &self,
