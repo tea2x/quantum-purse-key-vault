@@ -258,15 +258,13 @@ impl KeyVault {
         password: Uint8Array,
     ) -> Result<(), JsValue> {
         let password = SecureVec::from_slice(&password.to_vec());
-
-        let seed_phrase_bytes = seed_phrase.to_vec();
-        let mut seed_phrase_str = String::from_utf8(seed_phrase_bytes)
+        let mut seed_phrase_str = String::from_utf8(seed_phrase.to_vec())
             .map_err(|e| JsValue::from_str(&format!("Invalid UTF-8: {}", e)))?;
-
         let words: Vec<&str> = seed_phrase_str.split_whitespace().collect();
         let word_count = words.len();
 
         if word_count != self.variant.required_bip39_size_in_word_total() {
+            seed_phrase_str.zeroize();
             return Err(JsValue::from_str(&format!(
                 "Mismatch: The chosen SPHINCS+ parameter set {} requires {} words whereas the input mnemonic has {} words.",
                 self.variant,
@@ -351,7 +349,7 @@ impl KeyVault {
     ///
     /// **Parameters**:
     /// - `password: Uint8Array` - The password used to decrypt the private key.
-    /// - `lock_args: String` - The hex-encoded lock script's arguments corresponding to the SPHINCS+ public key of the account that signs.
+    /// - `lock_args: String` - The hex-encoded lock script's arguments corresponding to the SPHINCS+ public key of the account that signs. This is a CKB specific thing, check https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0022-transaction-structure/script-p2.png for more information.
     /// - `message: Uint8Array` - The message to be signed.
     ///
     /// **Returns**:

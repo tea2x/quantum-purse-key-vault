@@ -9,7 +9,7 @@ macro_rules! debug {
 macro_rules! sphincs_keygen {
     ($kg:ty, $n:expr, $seed:expr, $index:expr) => {{
         const N: usize = $n;
-        /* The following scrypt param is used together with a very high entropy source - a 512/768 bit
+        /* The following scrypt param is used together with a very high entropy source - a 16/24/32 bytes
         mnemonic seephrase to serve as QuantumPurse KDF. Security level for the derived keys isn't
         upgraded with Scrypt, each attacker's guess simply gets longer to run.*/
         let param = ScryptParam {
