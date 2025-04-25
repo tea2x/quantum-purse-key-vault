@@ -293,8 +293,7 @@ impl KeyVault {
                 }
             };
             chunk_str.zeroize();
-            let entropy = SecureVec::from_slice(&mnemonic.to_entropy());
-            combined_entropy.extend_from_slice(entropy.as_ref());
+            combined_entropy.extend_from_slice(&mnemonic.to_entropy());
         }
         seed_phrase_str.zeroize();
 
