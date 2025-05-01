@@ -1,9 +1,9 @@
 [package]
 name = "quantum-purse-key-vault"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 
-description = "A SPHINCS+ key management library for Quantum Purse"
+description = "A SPHINCS+ key management library for CKB blockchain."
 repository = "https://github.com/tea2x/quantum-purse-key-vault.git"
 license = "MIT"
 

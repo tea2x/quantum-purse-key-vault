@@ -30,7 +30,6 @@ pub struct CipherPayload {
 /// - `index: u32` - db addition order
 /// - `lock_args: String` - The lock script's argument calculated from the SPHINCS+ public key.
 /// - `pri_enc: CipherPayload` - Encrypted SPHINCS+ private key, stored as a `CipherPayload`.
-/// TODO improve size
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SphincsPlusAccount {
     pub index: u32,

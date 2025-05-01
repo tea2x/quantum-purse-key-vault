@@ -5,8 +5,6 @@ This module provides a secure authentication interface for managing SPHINCS+ cry
 ## JS interface
 
 ```typescript
-/* tslint:disable */
-/* eslint-disable */
 /**
  * ID of all 12 SPHINCS+ variants.
  */
@@ -123,6 +121,8 @@ export class KeyVault {
    *
    * **Warning**: Exporting the mnemonic exposes it in JavaScript, which may pose a security risk.
    * Proper zeroization of exported seed phrase is the responsibility of the caller.
+   * 
+   * **Async**: Yes
    */
   export_seed_phrase(password: Uint8Array): Promise<Uint8Array>;
   /**
@@ -130,7 +130,7 @@ export class KeyVault {
    *
    * **Parameters**:
    * - `password: Uint8Array` - The password used to decrypt the private key.
-   * - `lock_args: String` - The hex-encoded lock script's arguments corresponding to the SPHINCS+ public key of the account that signs.
+   * - `lock_args: String` - The hex-encoded lock script's arguments corresponding to the SPHINCS+ public key of the account that signs. This is a CKB specific thing, check https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0022-transaction-structure/script-p2.png for more information.
    * - `message: Uint8Array` - The message to be signed.
    *
    * **Returns**:
@@ -151,6 +151,8 @@ export class KeyVault {
    * **Returns**:
    * - `Result<Vec<String>, JsValue>` - A list of lock script arguments on success,
    *   or a JavaScript error on failure.
+   * 
+   * **Async**: Yes
    */
   try_gen_account_batch(password: Uint8Array, start_index: number, count: number): Promise<string[]>;
   /**
@@ -204,6 +206,53 @@ export class Util {
    */
   static password_checker(password: Uint8Array): number;
 }
+
+export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
+
+export interface InitOutput {
+  readonly memory: WebAssembly.Memory;
+  readonly __wbg_keyvault_free: (a: number, b: number) => void;
+  readonly __wbg_get_keyvault_variant: (a: number) => number;
+  readonly __wbg_set_keyvault_variant: (a: number, b: number) => void;
+  readonly keyvault_new: (a: number) => number;
+  readonly keyvault_clear_database: () => any;
+  readonly keyvault_get_all_sphincs_lock_args: () => any;
+  readonly keyvault_has_master_seed: (a: number) => any;
+  readonly keyvault_generate_master_seed: (a: number, b: any) => any;
+  readonly keyvault_gen_new_account: (a: number, b: any) => any;
+  readonly keyvault_import_seed_phrase: (a: number, b: any, c: any) => any;
+  readonly keyvault_export_seed_phrase: (a: number, b: any) => any;
+  readonly keyvault_sign: (a: number, b: any, c: number, d: number, e: any) => any;
+  readonly keyvault_try_gen_account_batch: (a: number, b: any, c: number, d: number) => any;
+  readonly keyvault_recover_accounts: (a: number, b: any, c: number) => any;
+  readonly __wbg_util_free: (a: number, b: number) => void;
+  readonly util_get_ckb_tx_message_all: (a: any) => [number, number, number];
+  readonly util_password_checker: (a: any) => [number, number, number];
+  readonly __wbindgen_malloc: (a: number, b: number) => number;
+  readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
+  readonly __wbindgen_exn_store: (a: number) => void;
+  readonly __externref_table_alloc: () => number;
+  readonly __wbindgen_export_4: WebAssembly.Table;
+  readonly __wbindgen_export_5: WebAssembly.Table;
+  readonly __externref_table_dealloc: (a: number) => void;
+  readonly closure90_externref_shim_multivalue_shim: (a: number, b: number, c: any) => [number, number];
+  readonly closure146_externref_shim: (a: number, b: number, c: any) => void;
+  readonly _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__ha3fd77ffc94e9c08: (a: number, b: number) => void;
+  readonly closure165_externref_shim: (a: number, b: number, c: any) => void;
+  readonly closure245_externref_shim: (a: number, b: number, c: any, d: any) => void;
+  readonly __wbindgen_start: () => void;
+}
+
+export type SyncInitInput = BufferSource | WebAssembly.Module;
+/**
+* Instantiates the given `module`, which can either be bytes or
+* a precompiled `WebAssembly.Module`.
+*
+* @param {{ module: SyncInitInput }} module - Passing `SyncInitInput` directly is deprecated.
+*
+* @returns {InitOutput}
+*/
+export function initSync(module: { module: SyncInitInput } | SyncInitInput): InitOutput;
 
 /**
 * If `module_or_path` is {RequestInfo} or {URL}, makes a request and

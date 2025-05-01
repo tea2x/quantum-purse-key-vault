@@ -17,7 +17,7 @@ This module provides a secure authentication interface for managing SPHINCS+ cry
 ### Custom BIP39
 SPHINCS+ offers 12 parameter sets, grouped into three security levels: 128-bit, 192-bit, and 256-bit. These require seeds of 48 bytes, 72 bytes, and 96 bytes respectively, used across key generation and signing.
 
-This library introduces a custom mnemonic backup format that splits the required seed into three distinct chunks, each derived from a separate BIP39 mnemonic phrase. The type of each phrase is determined by word count, corresponding to the entropy needs of the SPHINCS+ variant:
+This library introduces a custom BIP39 mnemonic backup format for each security level of SPHINCS+ as below:
 
 |SPHINCS+ level|BIP39 level|word count      |
 |--------------|-----------|----------------|

@@ -4,7 +4,7 @@ use super::types::{CipherPayload, SphincsPlusAccount};
 use crate::constants::{CHILD_KEYS_STORE, DB_NAME, MASTER_SEED_KEY, MASTER_SEED_STORE};
 use errors::KeyVaultDBError;
 use indexed_db_futures::{
-    database::Database, error::Error as DBError, prelude::*, transaction::TransactionMode,
+    database::Database, prelude::*, transaction::TransactionMode,
 };
 
 /// Opens the IndexedDB database, creating object stores if necessary.
@@ -53,7 +53,6 @@ pub async fn set_encrypted_seed(payload: CipherPayload) -> Result<(), KeyVaultDB
     let store = tx.object_store(MASTER_SEED_STORE)?;
 
     let js_value = serde_wasm_bindgen::to_value(&payload)?;
-
     store.put(&js_value).with_key(MASTER_SEED_KEY).await?;
     tx.commit().await?;
     Ok(())
@@ -105,24 +104,9 @@ pub async fn add_account(mut account: SphincsPlusAccount) -> Result<(), KeyVault
     account.index = count as u32;
     let js_value = serde_wasm_bindgen::to_value(&account)?;
 
-    match store.add(js_value).with_key(account.lock_args).build() {
-        Ok(_) => {
-            tx.commit().await?;
-            Ok(())
-        }
-        Err(e) => {
-            if let DBError::DomException(dom_err) = e {
-                if dom_err.name() == "ConstraintError" {
-                    // Key already exists, skip
-                    Ok(())
-                } else {
-                    Err(KeyVaultDBError::DatabaseError(dom_err.to_string()))
-                }
-            } else {
-                Err(KeyVaultDBError::DatabaseError(e.to_string()))
-            }
-        }
-    }
+    store.add(js_value).with_key(account.lock_args).await?;
+    tx.commit().await?;
+    Ok(())
 }
 
 /// Retrieves a child account by its public key from the database.
