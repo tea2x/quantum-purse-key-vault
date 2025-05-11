@@ -195,8 +195,7 @@ impl KeyVault {
         Ok(())
     }
 
-    /// Generates a new SPHINCS+ account - a SPHINCS+ child account derived from the master seed,
-    /// encrypts the private key with the password, and stores/appends it in IndexedDB.
+    /// Generates a new SPHINCS+ account - a SPHINCS+ child account derived from the master seed, encrypts the private key with the password, and stores it in IndexedDB.
     ///
     /// **Parameters**:
     /// - `password: Uint8Array` - The password used to decrypt the master seed and encrypt the child private key.
@@ -345,7 +344,7 @@ impl KeyVault {
         Ok(Uint8Array::from(combined_mnemonics.as_ref()))
     }
 
-    /// Signs a message using the SPHINCS+ private key after decrypting it with the provided password.
+    /// Sign and produce a valid signature for the Quantum Resistant lock script.
     ///
     /// **Parameters**:
     /// - `password: Uint8Array` - The password used to decrypt the private key.
@@ -473,7 +472,7 @@ impl KeyVault {
         Ok(lock_args_array)
     }
 
-    /// Building CKB lockscript for SPHINCS+ public key
+    /// Building CKB lockscript arguments
     ///
     /// **Parameters**:
     /// - `public_key: &SecureVec` - The SPHINCS+ public key to be used in the lock script.
@@ -521,7 +520,7 @@ impl Util {
             .map_err(|e| JsValue::from_str(&format!("Deserialization error: {}", e)))?;
         let mock_tx: MockTransaction = repr_mock_tx.into();
         let mut message_hasher = Hasher::message_hasher();
-        let _ = generate_ckb_tx_message_all_from_mock_tx(
+        generate_ckb_tx_message_all_from_mock_tx(
             &mock_tx,
             ScriptOrIndex::Index(0),
             &mut message_hasher,
@@ -531,10 +530,13 @@ impl Util {
         Ok(Uint8Array::from(message.as_slice()))
     }
 
-    /// Measure bit strength of a password
+    /// Check strength of a password.
+    /// There is no official weighting system to calculate the strength of a password.
+    /// This is just a simple implementation for ASCII passwords. Feel free to use your own password checker.
     ///
     /// **Parameters**:
     /// - `password: Uint8Array` - utf8 serialized password.
+    /// - `threshold: u32` - The lower bound for the password strength in bit security.
     ///
     /// **Returns**:
     /// - `Result<u16, JsValue>` - The strength of the password measured in bit on success,
@@ -542,23 +544,32 @@ impl Util {
     ///
     /// **Async**: no
     #[wasm_bindgen]
-    pub fn password_checker(password: Uint8Array) -> Result<u32, JsValue> {
+    pub fn password_checker(password: Uint8Array, threshold: u32) -> Result<u32, JsValue> {
         let password = SecureVec::from_slice(&password.to_vec());
         let password_str =
             std::str::from_utf8(&password).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         if password_str.is_empty() {
-            return Ok(0);
+            return Err(JsValue::from_str("Empty password!"));
         }
 
+        let mut has_space = false;
         let mut has_lowercase = false;
         let mut has_uppercase = false;
         let mut has_digit = false;
         let mut has_punctuation = false;
-        let mut has_space = false;
         let mut has_other = false;
+        let mut has_consecutive_repeats = false;
+        let mut prev_char: Option<char> = None;
 
         for c in password_str.chars() {
+            if let Some(prev) = prev_char {
+                if c == prev {
+                    has_consecutive_repeats = true;
+                }
+            }
+            prev_char = Some(c);
+
             if c == ' ' {
                 has_space = true;
             } else if c.is_ascii_lowercase() {
@@ -574,31 +585,30 @@ impl Util {
             }
         }
 
+        if has_consecutive_repeats {
+            return Err(JsValue::from_str("Password contains consecutive repeated characters!"));
+        }
+
         if !has_uppercase {
-            return Err(JsValue::from_str(
-                "Password must contain at least one uppercase letter!",
-            ));
+            return Err(JsValue::from_str("Password must contain at least one uppercase letter!"));
         }
         if !has_lowercase {
-            return Err(JsValue::from_str(
-                "Password must contain at least one lowercase letter!",
-            ));
+            return Err(JsValue::from_str("Password must contain at least one lowercase letter!"));
         }
         if !has_digit {
-            return Err(JsValue::from_str(
-                "Password must contain at least one digit!",
-            ));
+            return Err(JsValue::from_str("Password must contain at least one digit!"));
         }
         if !has_punctuation {
-            return Err(JsValue::from_str(
-                "Password must contain at least one symbol!",
-            ));
+            return Err(JsValue::from_str("Password must contain at least one symbol!"));
         }
 
         let character_set_size = if has_other {
-            256
+            256 // Entire characters space in ASCII
         } else {
             let mut size = 0;
+            if has_space {
+                size += 1;
+            } // Space character
             if has_lowercase {
                 size += 26;
             } // a-z
@@ -611,22 +621,15 @@ impl Util {
             if has_punctuation {
                 size += 32;
             } // ASCII punctuation
-            if has_space {
-                size += 1;
-            } // Space character
             size
         };
-
-        if character_set_size == 0 {
-            return Ok(0);
-        }
 
         let entropy = (password_str.len() as f64) * (character_set_size as f64).log2();
         let rounded_entropy = entropy.round() as u32;
 
-        if rounded_entropy < 256 {
+        if rounded_entropy < threshold {
             return Err(JsValue::from_str(
-                "Password entropy must be at least 256 bit. Consider lengthening your password!",
+                "Password is too short. Lengthening your password!",
             ));
         }
         Ok(rounded_entropy)
