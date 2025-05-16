@@ -4,26 +4,26 @@ This module provides a secure authentication interface for managing SPHINCS+ cry
 
 ###### <u>Feature list</u>:
 
-| Feature            | Details |
-|--------------------|---------|
-| **Signature type** | SPHINCS+ |
-| **Store model**    | Indexed DB |
-| **Mnemonic standard**| Custom BIP39 English |
-| **Local encryption** | AES256 |
-| **Key derivation** | Scrypt |
-| **Authentication** | Password |
-| **Password hashing** | Scrypt |
+| Feature               | Details              |
+|-----------------------|----------------------|
+| **Signature type**    | SPHINCS+             |
+| **Store model**       | Indexed DB           |
+| **Mnemonic standard** | Custom BIP39 English |
+| **Local encryption**  | AES256               |
+| **Key derivation**    | Scrypt               |
+| **Authentication**    | Password             |
+| **Password hashing**  | Scrypt               |
 
 ### Custom BIP39
-SPHINCS+ offers 12 parameter sets, grouped into three security levels: 128-bit, 192-bit, and 256-bit. These require seeds of 48 bytes, 72 bytes, and 96 bytes respectively, used across key generation and signing.
+SPHINCS+ offers 12 parameter sets, grouped by three security parameters: 128-bit, 192-bit, and 256-bit. These require seeds of 48 bytes, 72 bytes, and 96 bytes respectively, used across key generation and signing.
 
-This library introduces a custom BIP39 mnemonic backup format for each security level of SPHINCS+ as below:
+This library introduces a custom BIP39 mnemonic backup format for each security parameter of SPHINCS+ as below:
 
-|SPHINCS+ level|BIP39 level|word count      |
-|--------------|-----------|----------------|
-|128 ~ 48 bytes| 3*16byte  | 3*12 = 36 words|
-|192 ~ 72 bytes| 3*24byte  | 3*18 = 54 words|
-|256 ~ 96 bytes| 3*32byte  | 3*24 = 72 words|
+|SPHINCS+ security parameter| BIP39 level | Word count      |
+|---------------------------|-------------|-----------------|
+|    128 bit ~ 48 bytes     |   3*16byte  | 3*12 = 36 words |
+|    192 bit ~ 72 bytes     |   3*24byte  | 3*18 = 54 words |
+|    256 bit ~ 96 bytes     |   3*32byte  | 3*24 = 72 words |
 
 ### Dependency
 - Rust & Cargo

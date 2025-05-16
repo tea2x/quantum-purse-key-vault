@@ -1,6 +1,6 @@
 ## Quantum Purse Key Vault
 
-This module provides a secure authentication interface for managing SPHINCS+ cryptographic keys in [QuantumPurse project](https://github.com/tea2x/quantum-purse-web-static.git) using Rust and WebAssembly.
+This module provides a secure authentication interface for managing SPHINCS+ cryptographic keys in Web application using Rust and WebAssembly.
 
 ## JS interface
 
