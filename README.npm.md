@@ -5,6 +5,8 @@ This module provides a secure authentication interface for managing SPHINCS+ cry
 ## JS interface
 
 ```typescript
+/* tslint:disable */
+/* eslint-disable */
 /**
  * ID of all 12 SPHINCS+ variants.
  */
@@ -78,8 +80,7 @@ export class KeyVault {
    */
   generate_master_seed(password: Uint8Array): Promise<void>;
   /**
-   * Generates a new SPHINCS+ account - a SPHINCS+ child account derived from the master seed,
-   * encrypts the private key with the password, and stores/appends it in IndexedDB.
+   * Generates a new SPHINCS+ account - a SPHINCS+ child account derived from the master seed, encrypts the private key with the password, and stores it in IndexedDB.
    *
    * **Parameters**:
    * - `password: Uint8Array` - The password used to decrypt the master seed and encrypt the child private key.
@@ -126,7 +127,7 @@ export class KeyVault {
    */
   export_seed_phrase(password: Uint8Array): Promise<Uint8Array>;
   /**
-   * Signs a message using the SPHINCS+ private key after decrypting it with the provided password.
+   * Sign and produce a valid signature for the Quantum Resistant lock script.
    *
    * **Parameters**:
    * - `password: Uint8Array` - The password used to decrypt the private key.
@@ -193,10 +194,13 @@ export class Util {
    */
   static get_ckb_tx_message_all(serialized_mock_tx: Uint8Array): Uint8Array;
   /**
-   * Measure bit strength of a password
+   * Check strength of a password.
+   * There is no official weighting system to calculate the strength of a password.
+   * This is just a simple implementation for ASCII passwords. Feel free to use your own password checker.
    *
    * **Parameters**:
    * - `password: Uint8Array` - utf8 serialized password.
+   * - `threshold: u32` - The lower bound for the password strength in bit security.
    *
    * **Returns**:
    * - `Result<u16, JsValue>` - The strength of the password measured in bit on success,
@@ -204,7 +208,7 @@ export class Util {
    *
    * **Async**: no
    */
-  static password_checker(password: Uint8Array): number;
+  static password_checker(password: Uint8Array, threshold: number): number;
 }
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
@@ -227,7 +231,7 @@ export interface InitOutput {
   readonly keyvault_recover_accounts: (a: number, b: any, c: number) => any;
   readonly __wbg_util_free: (a: number, b: number) => void;
   readonly util_get_ckb_tx_message_all: (a: any) => [number, number, number];
-  readonly util_password_checker: (a: any) => [number, number, number];
+  readonly util_password_checker: (a: any, b: number) => [number, number, number];
   readonly __wbindgen_malloc: (a: number, b: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
   readonly __wbindgen_exn_store: (a: number) => void;
