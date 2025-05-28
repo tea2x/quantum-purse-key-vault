@@ -8,7 +8,7 @@ This module provides a secure authentication interface for managing SPHINCS+ cry
 /**
  * ID of all 12 SPHINCS+ variants.
  */
-export enum SphincsVariant {
+export enum SpxVariant {
   Sha2128F = 48,
   Sha2128S = 49,
   Sha2192F = 50,
@@ -33,7 +33,7 @@ export class KeyVault {
    * **Returns**:
    * - `KeyVault` - A new instance of the struct.
    */
-  constructor(variant: SphincsVariant);
+  constructor(variant: SpxVariant);
   /**
    * Clears all data in the `seed_phrase_store` and `child_keys_store` in IndexedDB.
    *
@@ -171,7 +171,7 @@ export class KeyVault {
   /**
    * The one parameter set chosen for QuantumPurse KeyVault setup in all 12 NIST-approved SPHINCS+ FIPS205 variants
    */
-  variant: SphincsVariant;
+  variant: SpxVariant;
 }
 /**
  *  Key-vault utility functions

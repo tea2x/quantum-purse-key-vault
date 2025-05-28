@@ -6,7 +6,7 @@ macro_rules! debug {
 }
 
 #[macro_export]
-macro_rules! sphincs_keygen {
+macro_rules! spx_keygen {
     ($kg:ty, $n:expr, $seed:expr, $index:expr) => {{
         const N: usize = $n;
         /* The following scrypt param is used together with a very high entropy source - a 16/24/32 bytes
@@ -41,7 +41,7 @@ macro_rules! sphincs_keygen {
 }
 
 #[macro_export]
-macro_rules! sphincs_sign {
+macro_rules! spx_sign {
     ($module:ident, $pri_key:expr, $message_vec:expr, $variant:expr) => {{
         let mut pri_key_bytes: [u8; $module::SK_LEN] = $pri_key
             .as_ref()

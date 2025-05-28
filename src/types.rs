@@ -40,7 +40,7 @@ pub struct SphincsPlusAccount {
 /// ID of all 12 SPHINCS+ variants.
 #[wasm_bindgen]
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
-pub enum SphincsVariant {
+pub enum SpxVariant {
     Sha2128F = 48,
     Sha2128S,
     Sha2192F,
@@ -55,7 +55,7 @@ pub enum SphincsVariant {
     Shake256S,
 }
 
-impl SphincsVariant {
+impl SpxVariant {
     // Each seed in the SPHINCS+ input seed trio {sk_seed, sk_prf, pk_seed} needs this amount of entropy in byte
     pub fn required_entropy_size_component(&self) -> usize {
         match self {
@@ -86,34 +86,34 @@ impl SphincsVariant {
     }
 }
 
-impl fmt::Display for SphincsVariant {
+impl fmt::Display for SpxVariant {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
-            SphincsVariant::Sha2128F => "Sha2128F",
-            SphincsVariant::Sha2128S => "Sha2128S",
-            SphincsVariant::Sha2192F => "Sha2192F",
-            SphincsVariant::Sha2192S => "Sha2192S",
-            SphincsVariant::Sha2256F => "Sha2256F",
-            SphincsVariant::Sha2256S => "Sha2256S",
-            SphincsVariant::Shake128F => "Shake128F",
-            SphincsVariant::Shake128S => "Shake128S",
-            SphincsVariant::Shake192F => "Shake192F",
-            SphincsVariant::Shake192S => "Shake192S",
-            SphincsVariant::Shake256F => "Shake256F",
-            SphincsVariant::Shake256S => "Shake256S",
+            SpxVariant::Sha2128F => "Sha2128F",
+            SpxVariant::Sha2128S => "Sha2128S",
+            SpxVariant::Sha2192F => "Sha2192F",
+            SpxVariant::Sha2192S => "Sha2192S",
+            SpxVariant::Sha2256F => "Sha2256F",
+            SpxVariant::Sha2256S => "Sha2256S",
+            SpxVariant::Shake128F => "Shake128F",
+            SpxVariant::Shake128S => "Shake128S",
+            SpxVariant::Shake192F => "Shake192F",
+            SpxVariant::Shake192S => "Shake192S",
+            SpxVariant::Shake256F => "Shake256F",
+            SpxVariant::Shake256S => "Shake256S",
         };
         write!(f, "{}", s)
     }
 }
 
-impl Shr<u8> for SphincsVariant {
+impl Shr<u8> for SpxVariant {
     type Output = u8;
     fn shr(self, rhs: u8) -> u8 {
         (self as u8) >> rhs
     }
 }
 
-impl Shl<u8> for SphincsVariant {
+impl Shl<u8> for SpxVariant {
     type Output = u8;
     fn shl(self, rhs: u8) -> u8 {
         (self as u8) << rhs

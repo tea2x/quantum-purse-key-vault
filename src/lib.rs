@@ -46,7 +46,7 @@ use utilities::*;
 #[wasm_bindgen]
 pub struct KeyVault {
     /// The one parameter set chosen for QuantumPurse KeyVault setup in all 12 NIST-approved SPHINCS+ FIPS205 variants
-    pub variant: SphincsVariant,
+    pub variant: SpxVariant,
 }
 
 #[wasm_bindgen]
@@ -56,11 +56,11 @@ impl KeyVault {
     /// **Returns**:
     /// - `KeyVault` - A new instance of the struct.
     #[wasm_bindgen(constructor)]
-    pub fn new(variant: SphincsVariant) -> Self {
+    pub fn new(variant: SpxVariant) -> Self {
         KeyVault { variant: variant }
     }
 
-    /// To derive Sphincs key pair. One master seed can derive multiple child index-based sphincs+ key pairs on demand.
+    /// To derive SPHINCS+ key pair. One master seed can derive multiple child index-based SPHINCS+ key pairs on demand.
     ///
     /// **Parameters**:
     /// - `seed: &[u8]` - The master seed from which the child sphincs+ key is derived. MUST carry at least N*3 bytes of entropy or panics.
@@ -70,24 +70,24 @@ impl KeyVault {
     /// - `Result<SecureVec, SecureVec>` - The SPHINCS+ key pair on success, or an error message on failure.
     ///
     /// Warning: Proper zeroization of the input seed is the responsibility of the caller.
-    fn derive_sphincs_keys(
+    fn derive_spx_keys(
         &self,
         seed: &[u8],
         index: u32,
     ) -> Result<(SecureVec, SecureVec), String> {
         match self.variant {
-            SphincsVariant::Sha2128S => sphincs_keygen!(slh_dsa_sha2_128s::KG, slh_dsa_sha2_128s::N, seed, index),
-            SphincsVariant::Sha2128F => sphincs_keygen!(slh_dsa_sha2_128f::KG, slh_dsa_sha2_128f::N, seed, index),
-            SphincsVariant::Sha2192S => sphincs_keygen!(slh_dsa_sha2_192s::KG, slh_dsa_sha2_192s::N, seed, index),
-            SphincsVariant::Sha2192F => sphincs_keygen!(slh_dsa_sha2_192f::KG, slh_dsa_sha2_192f::N, seed, index),
-            SphincsVariant::Sha2256S => sphincs_keygen!(slh_dsa_sha2_256s::KG, slh_dsa_sha2_256s::N, seed, index),
-            SphincsVariant::Sha2256F => sphincs_keygen!(slh_dsa_sha2_256f::KG, slh_dsa_sha2_256f::N, seed, index),
-            SphincsVariant::Shake128S => sphincs_keygen!(slh_dsa_shake_128s::KG, slh_dsa_shake_128s::N, seed, index),
-            SphincsVariant::Shake128F => sphincs_keygen!(slh_dsa_shake_128f::KG, slh_dsa_shake_128f::N, seed, index),
-            SphincsVariant::Shake192S => sphincs_keygen!(slh_dsa_shake_192s::KG, slh_dsa_shake_192s::N, seed, index),
-            SphincsVariant::Shake192F => sphincs_keygen!(slh_dsa_shake_192f::KG, slh_dsa_shake_192f::N, seed, index),
-            SphincsVariant::Shake256S => sphincs_keygen!(slh_dsa_shake_256s::KG, slh_dsa_shake_256s::N, seed, index),
-            SphincsVariant::Shake256F => sphincs_keygen!(slh_dsa_shake_256f::KG, slh_dsa_shake_256f::N, seed, index),
+            SpxVariant::Sha2128S => spx_keygen!(slh_dsa_sha2_128s::KG, slh_dsa_sha2_128s::N, seed, index),
+            SpxVariant::Sha2128F => spx_keygen!(slh_dsa_sha2_128f::KG, slh_dsa_sha2_128f::N, seed, index),
+            SpxVariant::Sha2192S => spx_keygen!(slh_dsa_sha2_192s::KG, slh_dsa_sha2_192s::N, seed, index),
+            SpxVariant::Sha2192F => spx_keygen!(slh_dsa_sha2_192f::KG, slh_dsa_sha2_192f::N, seed, index),
+            SpxVariant::Sha2256S => spx_keygen!(slh_dsa_sha2_256s::KG, slh_dsa_sha2_256s::N, seed, index),
+            SpxVariant::Sha2256F => spx_keygen!(slh_dsa_sha2_256f::KG, slh_dsa_sha2_256f::N, seed, index),
+            SpxVariant::Shake128S => spx_keygen!(slh_dsa_shake_128s::KG, slh_dsa_shake_128s::N, seed, index),
+            SpxVariant::Shake128F => spx_keygen!(slh_dsa_shake_128f::KG, slh_dsa_shake_128f::N, seed, index),
+            SpxVariant::Shake192S => spx_keygen!(slh_dsa_shake_192s::KG, slh_dsa_shake_192s::N, seed, index),
+            SpxVariant::Shake192F => spx_keygen!(slh_dsa_shake_192f::KG, slh_dsa_shake_192f::N, seed, index),
+            SpxVariant::Shake256S => spx_keygen!(slh_dsa_shake_256s::KG, slh_dsa_shake_256s::N, seed, index),
+            SpxVariant::Shake256F => spx_keygen!(slh_dsa_shake_256f::KG, slh_dsa_shake_256f::N, seed, index),
         }
     }
 
@@ -218,7 +218,7 @@ impl KeyVault {
 
         let index = Self::get_all_sphincs_lock_args().await?.len() as u32;
         let (pub_key, pri_key) = self
-            .derive_sphincs_keys(&seed, index)
+            .derive_spx_keys(&seed, index)
             .map_err(|e| JsValue::from_str(&format!("Key derivation error: {}", e)))?;
 
         // Calculate lock script args and encrypt corresponding private key
@@ -373,18 +373,18 @@ impl KeyVault {
         let message_vec = message.to_vec();
 
         match self.variant {
-            SphincsVariant::Sha2128S => sphincs_sign!(slh_dsa_sha2_128s, pri_key, &message_vec, self.variant),
-            SphincsVariant::Sha2128F => sphincs_sign!(slh_dsa_sha2_128f, pri_key, &message_vec, self.variant),
-            SphincsVariant::Shake128S => sphincs_sign!(slh_dsa_shake_128s, pri_key, &message_vec, self.variant),
-            SphincsVariant::Shake128F => sphincs_sign!(slh_dsa_shake_128f, pri_key, &message_vec, self.variant),
-            SphincsVariant::Sha2192S => sphincs_sign!(slh_dsa_sha2_192s, pri_key, &message_vec, self.variant),
-            SphincsVariant::Sha2192F => sphincs_sign!(slh_dsa_sha2_192f, pri_key, &message_vec, self.variant),
-            SphincsVariant::Shake192S => sphincs_sign!(slh_dsa_shake_192s, pri_key, &message_vec, self.variant),
-            SphincsVariant::Shake192F => sphincs_sign!(slh_dsa_shake_192f, pri_key, &message_vec, self.variant),
-            SphincsVariant::Sha2256S => sphincs_sign!(slh_dsa_sha2_256s, pri_key, &message_vec, self.variant),
-            SphincsVariant::Sha2256F => sphincs_sign!(slh_dsa_sha2_256f, pri_key, &message_vec, self.variant),
-            SphincsVariant::Shake256S => sphincs_sign!(slh_dsa_shake_256s, pri_key, &message_vec, self.variant),
-            SphincsVariant::Shake256F => sphincs_sign!(slh_dsa_shake_256f, pri_key, &message_vec, self.variant),
+            SpxVariant::Sha2128S => spx_sign!(slh_dsa_sha2_128s, pri_key, &message_vec, self.variant),
+            SpxVariant::Sha2128F => spx_sign!(slh_dsa_sha2_128f, pri_key, &message_vec, self.variant),
+            SpxVariant::Shake128S => spx_sign!(slh_dsa_shake_128s, pri_key, &message_vec, self.variant),
+            SpxVariant::Shake128F => spx_sign!(slh_dsa_shake_128f, pri_key, &message_vec, self.variant),
+            SpxVariant::Sha2192S => spx_sign!(slh_dsa_sha2_192s, pri_key, &message_vec, self.variant),
+            SpxVariant::Sha2192F => spx_sign!(slh_dsa_sha2_192f, pri_key, &message_vec, self.variant),
+            SpxVariant::Shake192S => spx_sign!(slh_dsa_shake_192s, pri_key, &message_vec, self.variant),
+            SpxVariant::Shake192F => spx_sign!(slh_dsa_shake_192f, pri_key, &message_vec, self.variant),
+            SpxVariant::Sha2256S => spx_sign!(slh_dsa_sha2_256s, pri_key, &message_vec, self.variant),
+            SpxVariant::Sha2256F => spx_sign!(slh_dsa_sha2_256f, pri_key, &message_vec, self.variant),
+            SpxVariant::Shake256S => spx_sign!(slh_dsa_shake_256s, pri_key, &message_vec, self.variant),
+            SpxVariant::Shake256F => spx_sign!(slh_dsa_shake_256f, pri_key, &message_vec, self.variant),
         }
     }
 
@@ -417,7 +417,7 @@ impl KeyVault {
         let mut lock_args_array: Vec<String> = Vec::new();
         for i in start_index..(start_index + count) {
             let (pub_key, _) = self
-                .derive_sphincs_keys(&seed, i)
+                .derive_spx_keys(&seed, i)
                 .map_err(|e| JsValue::from_str(&format!("Key derivation error: {}", e)))?;
 
             // Calculate lock script args
@@ -453,7 +453,7 @@ impl KeyVault {
         let seed = decrypt(&password, payload)?;
         for i in 0..count {
             let (pub_key, pri_key) = self
-                .derive_sphincs_keys(&seed, i)
+                .derive_spx_keys(&seed, i)
                 .map_err(|e| JsValue::from_str(&format!("Key derivation error: {}", e)))?;
 
             // Calculate lock script args and encrypt corresponding private key
