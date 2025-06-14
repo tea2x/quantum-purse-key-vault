@@ -256,6 +256,10 @@ impl KeyVault {
         seed_phrase: Uint8Array,
         password: Uint8Array,
     ) -> Result<(), JsValue> {
+        if self.has_master_seed().await? {
+            return Err(JsValue::from_str("Master seed already exists"));
+        }
+
         let password = SecureVec::from_slice(&password.to_vec());
         let mut seed_phrase_str = String::from_utf8(seed_phrase.to_vec())
             .map_err(|e| JsValue::from_str(&format!("Invalid UTF-8: {}", e)))?;
