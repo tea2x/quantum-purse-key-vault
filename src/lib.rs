@@ -38,7 +38,6 @@ use crate::constants::{
 };
 use secure_vec::SecureVec;
 use types::*;
-use utilities::*;
 
 ////////////////////////////////////////////////////////////////////////////////
 ///  Key-vault functions
@@ -167,6 +166,7 @@ impl KeyVault {
     }
 
     /// Generates master seed for your wallet, encrypts it with the provided password, and stores it in IndexedDB.
+    /// Throw if the master seed already exists.
     ///
     /// **Parameters**:
     /// - `password: Uint8Array` - The password used to encrypt the generated master seed.
@@ -183,10 +183,10 @@ impl KeyVault {
         }
 
         let size = self.variant.required_entropy_size_total();
-        let entropy = get_random_bytes(size)
+        let entropy = utilities::get_random_bytes(size)
             .map_err(|e| JsValue::from_str(&format!("Failed generating master seed: {}", e)))?;
         let password = SecureVec::from_slice(&password.to_vec());
-        let encrypted_seed = encrypt(&password, entropy.as_ref())
+        let encrypted_seed = utilities::encrypt(&password, entropy.as_ref())
             .map_err(|e| JsValue::from_str(&format!("Encryption error: {}", e)))?;
 
         db::set_encrypted_seed(encrypted_seed)
@@ -214,7 +214,7 @@ impl KeyVault {
             .await
             .map_err(|e| e.to_jsvalue())?
             .ok_or_else(|| JsValue::from_str("Master seed not found"))?;
-        let seed = decrypt(&password, payload)?;
+        let seed = utilities::decrypt(&password, payload)?;
 
         let index = Self::get_all_sphincs_lock_args().await?.len() as u32;
         let (pub_key, pri_key) = self
@@ -223,7 +223,7 @@ impl KeyVault {
 
         // Calculate lock script args and encrypt corresponding private key
         let lock_script_args = self.get_lock_scrip_arg(&pub_key);
-        let encrypted_pri = encrypt(&password, &pri_key)?;
+        let encrypted_pri = utilities::encrypt(&password, &pri_key)?;
 
         // Store to DB
         let account = SphincsPlusAccount {
@@ -238,6 +238,7 @@ impl KeyVault {
     }
 
     /// Imports master seed then encrypting it with the provided password.
+    /// Overwrite the existing master seed.
     ///
     /// **Parameters**:
     /// - `seed_phrase: Uint8Array` - The mnemonic phrase as a valid UTF-8 encoded Uint8Array to import. There're only 3 options accepted: 36, 54 or 72 words.
@@ -256,10 +257,6 @@ impl KeyVault {
         seed_phrase: Uint8Array,
         password: Uint8Array,
     ) -> Result<(), JsValue> {
-        if self.has_master_seed().await? {
-            return Err(JsValue::from_str("Master seed already exists"));
-        }
-
         let password = SecureVec::from_slice(&password.to_vec());
         let mut seed_phrase_str = String::from_utf8(seed_phrase.to_vec())
             .map_err(|e| JsValue::from_str(&format!("Invalid UTF-8: {}", e)))?;
@@ -298,7 +295,7 @@ impl KeyVault {
         }
         seed_phrase_str.zeroize();
 
-        let encrypted_seed = encrypt(&password, &combined_entropy)?;
+        let encrypted_seed = utilities::encrypt(&password, &combined_entropy)?;
         db::set_encrypted_seed(encrypted_seed)
             .await
             .map_err(|e| e.to_jsvalue())?;
@@ -328,7 +325,7 @@ impl KeyVault {
             .map_err(|e| e.to_jsvalue())?
             .ok_or_else(|| JsValue::from_str("Master seed not found"))?;
 
-        let entropy = decrypt(&password, payload)?;
+        let entropy = utilities::decrypt(&password, payload)?;
         let size = self.variant.required_entropy_size_component();
         let chunks = entropy.chunks(size);
         let mut mnemonics = Vec::new();
@@ -373,7 +370,7 @@ impl KeyVault {
             .map_err(|e| e.to_jsvalue())?
             .ok_or_else(|| JsValue::from_str("Account not found"))?;
 
-        let pri_key = decrypt(&password, account.pri_enc)?;
+        let pri_key = utilities::decrypt(&password, account.pri_enc)?;
         let message_vec = message.to_vec();
 
         match self.variant {
@@ -417,7 +414,7 @@ impl KeyVault {
             .await
             .map_err(|e| e.to_jsvalue())?
             .ok_or_else(|| JsValue::from_str("Master seed not found"))?;
-        let seed = decrypt(&password, payload)?;
+        let seed = utilities::decrypt(&password, payload)?;
         let mut lock_args_array: Vec<String> = Vec::new();
         for i in start_index..(start_index + count) {
             let (pub_key, _) = self
@@ -454,7 +451,7 @@ impl KeyVault {
             .map_err(|e| e.to_jsvalue())?
             .ok_or_else(|| JsValue::from_str("Master seed not found"))?;
         let mut lock_args_array: Vec<String> = Vec::new();
-        let seed = decrypt(&password, payload)?;
+        let seed = utilities::decrypt(&password, payload)?;
         for i in 0..count {
             let (pub_key, pri_key) = self
                 .derive_spx_keys(&seed, i)
@@ -462,7 +459,7 @@ impl KeyVault {
 
             // Calculate lock script args and encrypt corresponding private key
             let lock_script_args = self.get_lock_scrip_arg(&pub_key);
-            let encrypted_pri = encrypt(&password, &pri_key)?;
+            let encrypted_pri = utilities::encrypt(&password, &pri_key)?;
             // Store to DB
             let account = SphincsPlusAccount {
                 index: 0, // Init to 0; Will be set correctly in add_account

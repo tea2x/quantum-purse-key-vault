@@ -1029,7 +1029,7 @@ dependencies = [
 
 [[package]]
 name = "quantum-purse-key-vault"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "aes-gcm",
  "bip39",
