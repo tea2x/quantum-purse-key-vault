@@ -68,6 +68,7 @@ export class KeyVault {
   has_master_seed(): Promise<boolean>;
   /**
    * Generates master seed for your wallet, encrypts it with the provided password, and stores it in IndexedDB.
+   * Throw if the master seed already exists.
    *
    * **Parameters**:
    * - `password: Uint8Array` - The password used to encrypt the generated master seed.
@@ -94,6 +95,7 @@ export class KeyVault {
   gen_new_account(password: Uint8Array): Promise<string>;
   /**
    * Imports master seed then encrypting it with the provided password.
+   * Overwrite the existing master seed.
    *
    * **Parameters**:
    * - `seed_phrase: Uint8Array` - The mnemonic phrase as a valid UTF-8 encoded Uint8Array to import. There're only 3 options accepted: 36, 54 or 72 words.
