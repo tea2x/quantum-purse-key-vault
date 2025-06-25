@@ -658,7 +658,7 @@ impl Util {
 
         if rounded_entropy < threshold {
             return Err(JsValue::from_str(
-                "Password is too short. Lengthening your password!",
+                "Password is too short. Lengthen your password!",
             ));
         }
         Ok(rounded_entropy)
