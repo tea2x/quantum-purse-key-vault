@@ -591,10 +591,6 @@ impl Util {
         let mut has_consecutive_repeats = false;
         let mut prev_char: Option<char> = None;
 
-        if password_str.len() < 20 {
-            return Err(JsValue::from_str("Password must contain at least 20 characters!"));
-        }
-
         for c in password_str.chars() {
             if let Some(prev) = prev_char {
                 if c == prev {
@@ -632,6 +628,9 @@ impl Util {
         }
         if !has_punctuation {
             return Err(JsValue::from_str("Password must contain at least one symbol!"));
+        }
+        if password_str.len() < 20 {
+            return Err(JsValue::from_str("Password must contain at least 20 characters!"));
         }
 
         let character_set_size = if has_other {
