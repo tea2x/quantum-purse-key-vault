@@ -562,10 +562,10 @@ impl Util {
     /// Check strength of a password.
     /// There is no official weighting system to calculate the strength of a password.
     /// This is just a simple implementation for ASCII passwords. Feel free to use your own password checker.
+    /// By default will require at least 20 characters
     ///
     /// **Parameters**:
     /// - `password: Uint8Array` - utf8 serialized password.
-    /// - `threshold: u32` - The lower bound for the password strength in bit security.
     ///
     /// **Returns**:
     /// - `Result<u16, JsValue>` - The strength of the password measured in bit on success,
@@ -573,7 +573,7 @@ impl Util {
     ///
     /// **Async**: no
     #[wasm_bindgen]
-    pub fn password_checker(password: Uint8Array, threshold: u32) -> Result<u32, JsValue> {
+    pub fn password_checker(password: Uint8Array) -> Result<u32, JsValue> {
         if password.length() == 0 {
             return Err(JsValue::from_str("Password cannot be empty"));
         }
@@ -590,6 +590,10 @@ impl Util {
         let mut has_other = false;
         let mut has_consecutive_repeats = false;
         let mut prev_char: Option<char> = None;
+
+        if password_str.len() < 20 {
+            return Err(JsValue::from_str("Password must contain at least 20 characters!"));
+        }
 
         for c in password_str.chars() {
             if let Some(prev) = prev_char {
@@ -615,9 +619,8 @@ impl Util {
         }
 
         if has_consecutive_repeats {
-            return Err(JsValue::from_str("Password contains consecutive repeated characters!"));
+            return Err(JsValue::from_str("Password must not contain consecutive repeated characters!"));
         }
-
         if !has_uppercase {
             return Err(JsValue::from_str("Password must contain at least one uppercase letter!"));
         }
@@ -655,12 +658,6 @@ impl Util {
 
         let entropy = (password_str.len() as f64) * (character_set_size as f64).log2();
         let rounded_entropy = entropy.round() as u32;
-
-        if rounded_entropy < threshold {
-            return Err(JsValue::from_str(
-                "Password is too short. Lengthen your password!",
-            ));
-        }
         Ok(rounded_entropy)
     }
 }

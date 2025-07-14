@@ -199,10 +199,10 @@ export class Util {
    * Check strength of a password.
    * There is no official weighting system to calculate the strength of a password.
    * This is just a simple implementation for ASCII passwords. Feel free to use your own password checker.
+   * By default will require at least 20 characters
    *
    * **Parameters**:
    * - `password: Uint8Array` - utf8 serialized password.
-   * - `threshold: u32` - The lower bound for the password strength in bit security.
    *
    * **Returns**:
    * - `Result<u16, JsValue>` - The strength of the password measured in bit on success,
@@ -210,7 +210,7 @@ export class Util {
    *
    * **Async**: no
    */
-  static password_checker(password: Uint8Array, threshold: number): number;
+  static password_checker(password: Uint8Array): number;
 }
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
@@ -233,7 +233,7 @@ export interface InitOutput {
   readonly keyvault_recover_accounts: (a: number, b: any, c: number) => any;
   readonly __wbg_util_free: (a: number, b: number) => void;
   readonly util_get_ckb_tx_message_all: (a: any) => [number, number, number];
-  readonly util_password_checker: (a: any, b: number) => [number, number, number];
+  readonly util_password_checker: (a: any) => [number, number, number];
   readonly __wbindgen_malloc: (a: number, b: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
   readonly __wbindgen_exn_store: (a: number) => void;
