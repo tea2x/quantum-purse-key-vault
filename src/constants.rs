@@ -10,9 +10,9 @@ pub const CHILD_KEYS_STORE: &str = "child_keys_store";
 pub const KDF_PATH_PREFIX: &str = "ckb/quantum-purse/sphincs-plus/";
 
 /// Scrypt’s original paper suggests N = 16384 (log_n = 14) for interactive logins, but that’s for low-entropy passwords.
-/// QuantumPurse uses 256 bit high-entropy passwords together with the following scrypt param to protect data in DB.
+/// QuantumPurse requires passwords of at least 20 chars ~ 128 bit security together with the following scrypt param to protect data in DB.
 /// Security level for the encryption/decryption keys isn't upgraded with Scrypt, each attacker's guess simply gets longer to run.
-/// TODO: Adjust scrypt parameters for security/performance
+/// TODO: Consider scrypt parameters for security/performance
 pub const ENC_SCRYPT: ScryptParam = ScryptParam {
     log_n: 14,
     r: 8,
