@@ -178,7 +178,9 @@ impl KeyVault {
     /// **Async**: Yes
     #[wasm_bindgen]
     pub async fn generate_master_seed(&self, password: Uint8Array) -> Result<(), JsValue> {
-        if password.length() == 0 {
+        let password = SecureVec::from_slice(&password.to_vec());
+
+        if password.len() == 0 {
             return Err(JsValue::from_str("Password cannot be empty"));
         }
 
@@ -189,7 +191,6 @@ impl KeyVault {
         let size = self.variant.required_entropy_size_total();
         let entropy = utilities::get_random_bytes(size)
             .map_err(|e| JsValue::from_str(&format!("Failed generating master seed: {}", e)))?;
-        let password = SecureVec::from_slice(&password.to_vec());
         let encrypted_seed = utilities::encrypt(&password, entropy.as_ref())
             .map_err(|e| JsValue::from_str(&format!("Encryption error: {}", e)))?;
 
@@ -211,11 +212,11 @@ impl KeyVault {
     /// **Async**: Yes
     #[wasm_bindgen]
     pub async fn gen_new_account(&self, password: Uint8Array) -> Result<String, JsValue> {
-        if password.length() == 0 {
+        let password = SecureVec::from_slice(&password.to_vec());
+
+        if password.len() == 0 {
             return Err(JsValue::from_str("Password cannot be empty"));
         }
-
-        let password = SecureVec::from_slice(&password.to_vec());
 
         // Get and decrypt the master seed
         let payload = db::get_encrypted_seed()
@@ -265,11 +266,12 @@ impl KeyVault {
         seed_phrase: Uint8Array,
         password: Uint8Array,
     ) -> Result<(), JsValue> {
-        if password.length() == 0 {
+        let password = SecureVec::from_slice(&password.to_vec());
+
+        if password.len() == 0 {
             return Err(JsValue::from_str("Password cannot be empty"));
         }
-
-        let password = SecureVec::from_slice(&password.to_vec());
+        
         let mut seed_phrase_str = String::from_utf8(seed_phrase.to_vec())
             .map_err(|e| JsValue::from_str(&format!("Invalid UTF-8: {}", e)))?;
         let words: Vec<&str> = seed_phrase_str.split_whitespace().collect();
@@ -331,11 +333,12 @@ impl KeyVault {
     /// **Async**: Yes
     #[wasm_bindgen]
     pub async fn export_seed_phrase(&self, password: Uint8Array) -> Result<Uint8Array, JsValue> {
-        if password.length() == 0 {
+        let password = SecureVec::from_slice(&password.to_vec());
+
+        if password.len() == 0 {
             return Err(JsValue::from_str("Password cannot be empty"));
         }
 
-        let password = SecureVec::from_slice(&password.to_vec());
         let payload = db::get_encrypted_seed()
             .await
             .map_err(|e| e.to_jsvalue())?
@@ -380,11 +383,12 @@ impl KeyVault {
         lock_args: String,
         message: Uint8Array,
     ) -> Result<Uint8Array, JsValue> {
-        if password.length() == 0 {
+        let password = SecureVec::from_slice(&password.to_vec());
+
+        if password.len() == 0 {
             return Err(JsValue::from_str("Password cannot be empty"));
         }
 
-        let password = SecureVec::from_slice(&password.to_vec());
         let account = db::get_account(&lock_args)
             .await
             .map_err(|e| e.to_jsvalue())?
@@ -428,11 +432,12 @@ impl KeyVault {
         start_index: u32,
         count: u32,
     ) -> Result<Vec<String>, JsValue> {
-        if password.length() == 0 {
+        let password = SecureVec::from_slice(&password.to_vec());
+
+        if password.len() == 0 {
             return Err(JsValue::from_str("Password cannot be empty"));
         }
 
-        let password = SecureVec::from_slice(&password.to_vec());
         // Get and decrypt the master seed
         let payload = db::get_encrypted_seed()
             .await
@@ -468,11 +473,12 @@ impl KeyVault {
         password: Uint8Array,
         count: u32,
     ) -> Result<Vec<String>, JsValue> {
-        if password.length() == 0 {
+        let password = SecureVec::from_slice(&password.to_vec());
+
+        if password.len() == 0 {
             return Err(JsValue::from_str("Password cannot be empty"));
         }
 
-        let password = SecureVec::from_slice(&password.to_vec());
         // Get and decrypt the master seed
         let payload = db::get_encrypted_seed()
             .await
@@ -501,7 +507,7 @@ impl KeyVault {
         Ok(lock_args_array)
     }
 
-    /// Building CKB lockscript arguments
+    /// Building CKB SPHINCS+ all-in-one lockscript arguments
     ///
     /// **Parameters**:
     /// - `public_key: &SecureVec` - The SPHINCS+ public key to be used in the lock script.
@@ -574,11 +580,12 @@ impl Util {
     /// **Async**: no
     #[wasm_bindgen]
     pub fn password_checker(password: Uint8Array) -> Result<u32, JsValue> {
-        if password.length() == 0 {
+        let password = SecureVec::from_slice(&password.to_vec());
+
+        if password.len() == 0 {
             return Err(JsValue::from_str("Password cannot be empty"));
         }
-
-        let password = SecureVec::from_slice(&password.to_vec());
+        
         let password_str =
             std::str::from_utf8(&password).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
