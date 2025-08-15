@@ -272,7 +272,7 @@ impl KeyVault {
     ) -> Result<(), JsValue> {
         let password = SecureVec::from_slice(&js_password.to_vec());
         js_password.fill(0, 0, js_password.length());
-        
+
         let seed_phrase_str = SecureString::from_utf8(js_seed_phrase.to_vec())
             .map_err(|e| JsValue::from_str(&format!("Invalid UTF-8: {}", e)))?;
         js_seed_phrase.fill(0, 0, js_seed_phrase.length());
@@ -578,7 +578,7 @@ impl Util {
     #[wasm_bindgen]
     pub fn password_checker(js_password: Uint8Array) -> Result<u32, JsValue> {
         let password = SecureVec::from_slice(&js_password.to_vec());
-        js_password.fill(0, 0, 0);
+        js_password.fill(0, 0, js_password.length());
 
         if password.len() == 0 {
             return Err(JsValue::from_str("Password cannot be empty"));
