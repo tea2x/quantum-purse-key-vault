@@ -1,7 +1,7 @@
 //! # QuantumPurse KeyVault
 //!
-//! This module provides a secure authentication interface for managing cryptographic keys in
-//! QuantumPurse using WebAssembly. It leverages AES-GCM for encryption, Scrypt for key derivation,
+//! This module provides a secure password-based authentication interface for managing cryptographic keys in
+//! QuantumPurse project using WebAssembly. It leverages AES-GCM for encryption, Scrypt for key derivation & hashing,
 //! and the SPHINCS+ signature scheme for post-quantum transaction signing. Sensitive data, including
 //! root seed and derived SPHINCS+ private keys, is encrypted and stored in the browser via
 //! IndexedDB, with access authenticated by user-provided passwords.
@@ -162,8 +162,8 @@ impl KeyVault {
     /// **Async**: Yes
     #[wasm_bindgen]
     pub async fn has_master_seed(&self) -> Result<bool, JsValue> {
-        let stored_seed = db::get_encrypted_seed().await.map_err(|e| e.to_jsvalue())?;
-        Ok(stored_seed.is_some())
+        let payload = db::get_encrypted_seed().await.map_err(|e| e.to_jsvalue())?;
+        Ok(payload.is_some())
     }
 
     /// Generates master seed for your wallet, encrypts it with the provided password, and stores it in IndexedDB.
@@ -302,8 +302,8 @@ impl KeyVault {
             combined_entropy.extend(&mnemonic.to_entropy());
         }
 
-        let encrypted_seed = utilities::encrypt(&password, &combined_entropy)?;
-        db::set_encrypted_seed(encrypted_seed)
+        let payload = utilities::encrypt(&password, &combined_entropy)?;
+        db::set_encrypted_seed(payload)
             .await
             .map_err(|e| e.to_jsvalue())?;
         Ok(())
@@ -432,9 +432,9 @@ impl KeyVault {
             .ok_or_else(|| JsValue::from_str("Master seed not found"))?;
         let seed = utilities::decrypt(&password, payload)?;
         let mut lock_args_array: Vec<String> = Vec::new();
-        for i in start_index..(start_index + count) {
+        for index in start_index..(start_index + count) {
             let (pub_key, _) = self
-                .derive_spx_keys(&seed, i)
+                .derive_spx_keys(&seed, index)
                 .map_err(|e| JsValue::from_str(&format!("Key derivation error: {}", e)))?;
 
             // Calculate lock script args
@@ -473,9 +473,9 @@ impl KeyVault {
             .ok_or_else(|| JsValue::from_str("Master seed not found"))?;
         let mut lock_args_array: Vec<String> = Vec::new();
         let seed = utilities::decrypt(&password, payload)?;
-        for i in 0..count {
+        for index in 0..count {
             let (pub_key, pri_key) = self
-                .derive_spx_keys(&seed, i)
+                .derive_spx_keys(&seed, index)
                 .map_err(|e| JsValue::from_str(&format!("Key derivation error: {}", e)))?;
 
             // Calculate lock script args and encrypt corresponding private key

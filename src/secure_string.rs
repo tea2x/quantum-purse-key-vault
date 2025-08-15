@@ -1,5 +1,6 @@
 /// A secure string type for custom BIP39 menmonic seed words
 /// Used in containing BIP39 component/elemental mnemonic word string
+/// facilitating custom BIP39 for quantumPurse Keyvault
 
 use std::ops::{Deref, /*DerefMut*/};
 use zeroize::Zeroize;

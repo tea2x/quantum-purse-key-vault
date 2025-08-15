@@ -4,10 +4,10 @@ use crate::secure_vec::SecureVec;
 use aes_gcm::{
     aead::{Aead, KeyInit},
     Aes256Gcm, Key, Nonce,
+    AeadInPlace
 };
 use hex::{decode, encode};
 use scrypt::{scrypt, Params};
-use zeroize::Zeroize;
 #[cfg(test)]
 mod tests;
 
@@ -33,7 +33,7 @@ pub fn get_random_bytes(length: usize) -> Result<SecureVec, getrandom_v03::Error
 /// **Returns**:
 /// - `Result<SecureVec, String>` - Scrypt key on success, or an error message on failure.
 ///
-/// Warning: Proper zeroization of passwords is the responsibility of the caller.
+/// Warning: Proper zeroization of the input is the responsibility of the caller.
 pub fn derive_scrypt_key(
     input: &[u8],
     salt: &Vec<u8>,
@@ -55,7 +55,7 @@ pub fn derive_scrypt_key(
 /// **Returns**:
 /// - `Result<CipherPayload, String>` - A `CipherPayload` containing the encrypted data, salt, and IV on success, or an error message on failure.
 ///
-/// Warning: Proper zeroization of passwords and inputs is the responsibility of the caller.
+/// Warning: Proper zeroization of the password and input is the responsibility of the caller.
 pub fn encrypt(password: &[u8], input: &[u8]) -> Result<CipherPayload, String> {
     let mut salt = vec![0u8; SALT_LENGTH];
     let mut iv = vec![0u8; IV_LENGTH];
@@ -87,7 +87,7 @@ pub fn encrypt(password: &[u8], input: &[u8]) -> Result<CipherPayload, String> {
 /// **Returns**:
 /// - `Result<Vec<u8>, String>` - The decrypted plaintext on success, or an error message on failure.
 ///
-/// Warning: Proper zeroization of passwords and inputs is the responsibility of the caller.
+/// Warning: Proper zeroization of the password and input is the responsibility of the caller.
 pub fn decrypt(password: &[u8], payload: CipherPayload) -> Result<SecureVec, String> {
     let salt = decode(payload.salt).map_err(|e| format!("Salt decode error: {:?}", e))?;
     let iv = decode(payload.iv).map_err(|e| format!("IV decode error: {:?}", e))?;
@@ -98,11 +98,9 @@ pub fn decrypt(password: &[u8], payload: CipherPayload) -> Result<SecureVec, Str
     let aes_key: &Key<Aes256Gcm> = Key::<Aes256Gcm>::from_slice(&hashed_password);
     let cipher = Aes256Gcm::new(aes_key);
     let nonce = Nonce::from_slice(&iv);
-    let mut decipher = cipher
-        .decrypt(nonce, cipher_text.as_ref())
-        .map_err(|e| format!("Decryption error: {:?}", e))?;
 
-    let secure_decipher = SecureVec::from_slice(&decipher);
-    decipher.zeroize();
+    let mut secure_decipher = SecureVec::from_slice(&cipher_text);
+    cipher.decrypt_in_place(&nonce, b"", &mut secure_decipher)
+        .map_err(|e| format!("Decryption error: {:?}", e))?;
     Ok(secure_decipher)
 }
