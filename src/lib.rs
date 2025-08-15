@@ -23,12 +23,12 @@ use indexed_db_futures::{
 use serde_wasm_bindgen;
 use wasm_bindgen::{prelude::*, JsValue};
 use web_sys::js_sys::Uint8Array;
-use zeroize::Zeroize;
 
 mod constants;
 mod db;
 mod macros;
 mod secure_vec;
+mod secure_string;
 mod types;
 mod utilities;
 
@@ -37,6 +37,7 @@ use crate::constants::{
     PUBKEY_NUM, REQUIRED_FIRST_N, THRESHOLD,
 };
 use secure_vec::SecureVec;
+use secure_string::SecureString;
 use types::*;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -272,13 +273,12 @@ impl KeyVault {
             return Err(JsValue::from_str("Password cannot be empty"));
         }
         
-        let mut seed_phrase_str = String::from_utf8(seed_phrase.to_vec())
+        let seed_phrase_str = SecureString::from_utf8(seed_phrase.to_vec())
             .map_err(|e| JsValue::from_str(&format!("Invalid UTF-8: {}", e)))?;
         let words: Vec<&str> = seed_phrase_str.split_whitespace().collect();
         let word_count = words.len();
 
         if word_count != self.variant.required_bip39_size_in_word_total() {
-            seed_phrase_str.zeroize();
             return Err(JsValue::from_str(&format!(
                 "Mismatch: The chosen SPHINCS+ parameter set {} requires {} words whereas the input mnemonic has {} words.",
                 self.variant,
@@ -292,22 +292,15 @@ impl KeyVault {
         let size = self.variant.required_bip39_size_in_word_component();
         for chunk in words.chunks(size) {
             index += 1;
-            let mut chunk_str = chunk.join(" ");
-            let mnemonic = match Mnemonic::parse_in(Language::English, &chunk_str) {
-                Ok(m) => {m},
-                Err(e) => {
-                    chunk_str.zeroize();
-                    seed_phrase_str.zeroize();
-                    return Err(JsValue::from_str(&format!(
-                        "Invalid mnemonic: Chunk{} index {}: {}",
-                        size, index, e
-                    )));
-                }
-            };
-            chunk_str.zeroize();
-            combined_entropy.extend_from_slice(&mnemonic.to_entropy());
+            let chunk_str = SecureString::from_string(chunk.join(" "));
+            let mnemonic = Mnemonic::parse_in(Language::English, &*chunk_str).map_err(|e| {
+                JsValue::from_str(&format!(
+                    "Invalid mnemonic: Chunk{} index {}: {}",
+                    size, index, e
+                ))
+            })?;
+            combined_entropy.extend(&mnemonic.to_entropy());
         }
-        seed_phrase_str.zeroize();
 
         let encrypted_seed = utilities::encrypt(&password, &combined_entropy)?;
         db::set_encrypted_seed(encrypted_seed)
@@ -347,28 +340,22 @@ impl KeyVault {
         let entropy = utilities::decrypt(&password, payload)?;
         let size = self.variant.required_entropy_size_component();
         let chunks = entropy.chunks(size);
-        let mut mnemonics = Vec::new();
-        for chunk in chunks {
-            let mnemonic = match Mnemonic::from_entropy_in(Language::English, chunk) {
-                Ok(m) => {m},
-                Err(e) => {
-                    mnemonics.zeroize();
-                    return Err(JsValue::from_str(&format!("Export seed error: {}", e)));
-                }
-            };
-            mnemonics.push(mnemonic.to_string());
-        }
-        let combined_mnemonics = mnemonics.join(" ");
-        mnemonics.zeroize();
 
-        Ok(Uint8Array::from(combined_mnemonics.as_ref()))
+        let mut combined_mnemonic  = SecureString::new();
+        for chunk in chunks {
+            let mnemonic = Mnemonic::from_entropy_in(Language::English, chunk)
+                .map_err(|e| JsValue::from_str(&format!("Export seed error: {}", e)))?;
+            combined_mnemonic.extend(&mnemonic.to_string());
+        }
+        Ok(Uint8Array::from(combined_mnemonic.as_ref()))
     }
 
     /// Sign and produce a valid signature for the Quantum Resistant lock script.
     ///
     /// **Parameters**:
     /// - `password: Uint8Array` - The password used to decrypt the private key.
-    /// - `lock_args: String` - The hex-encoded lock script's arguments corresponding to the SPHINCS+ public key of the account that signs. This is a CKB specific thing, check https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0022-transaction-structure/script-p2.png for more information.
+    /// - `lock_args: String` - The hex-encoded lock script's arguments corresponding to the SPHINCS+ public key of the account that signs.
+    ///    This is a CKB specific thing, check https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0022-transaction-structure/script-p2.png for more information.
     /// - `message: Uint8Array` - The message to be signed.
     ///
     /// **Returns**:

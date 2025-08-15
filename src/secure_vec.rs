@@ -1,3 +1,6 @@
+/// A secure vector that zeroizes its contents when dropped.
+/// Used in containing sensitive bytes like passwords or master seed.
+
 use std::ops::{Deref, DerefMut};
 use zeroize::Zeroize;
 #[cfg(test)]
@@ -5,7 +8,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 #[cfg(test)]
 pub static ZEROIZED: AtomicBool = AtomicBool::new(false);
 
-/// A secure vector that zeroizes its contents when dropped.
 #[derive(Debug)]
 pub struct SecureVec(Vec<u8>);
 
@@ -18,7 +20,7 @@ impl SecureVec {
       SecureVec(slice.to_vec())
     }
 
-    pub fn extend_from_slice(&mut self, slice: &[u8]) {
+    pub fn extend(&mut self, slice: &[u8]) {
         self.0.extend_from_slice(slice);
     }
 }

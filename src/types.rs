@@ -37,7 +37,7 @@ pub struct SphincsPlusAccount {
     pub pri_enc: CipherPayload,
 }
 
-/// ID of all 12 SPHINCS+ variants.
+/// ID of all 12 SPHINCS+ variants following https://github.com/cryptape/quantum-resistant-lock-script/pull/14
 #[wasm_bindgen]
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum SpxVariant {
