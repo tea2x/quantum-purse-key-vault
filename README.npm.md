@@ -8,7 +8,7 @@ This module provides a secure authentication interface for managing SPHINCS+ cry
 /* tslint:disable */
 /* eslint-disable */
 /**
- * ID of all 12 SPHINCS+ variants.
+ * ID of all 12 SPHINCS+ variants following https://github.com/cryptape/quantum-resistant-lock-script/pull/14
  */
 export enum SpxVariant {
   Sha2128F = 48,
@@ -71,7 +71,7 @@ export class KeyVault {
    * Throw if the master seed already exists.
    *
    * **Parameters**:
-   * - `password: Uint8Array` - The password used to encrypt the generated master seed.
+   * - `js_password: Uint8Array` - The password used to encrypt the generated master seed, input from js env.
    *
    * **Returns**:
    * - `Result<(), JsValue>` - A JavaScript Promise that resolves to `undefined` on success,
@@ -79,12 +79,12 @@ export class KeyVault {
    *
    * **Async**: Yes
    */
-  generate_master_seed(password: Uint8Array): Promise<void>;
+  generate_master_seed(js_password: Uint8Array): Promise<void>;
   /**
    * Generates a new SPHINCS+ account - a SPHINCS+ child account derived from the master seed, encrypts the private key with the password, and stores it in IndexedDB.
    *
    * **Parameters**:
-   * - `password: Uint8Array` - The password used to decrypt the master seed and encrypt the child private key.
+   * - `js_password: Uint8Array` - The password used to decrypt the master seed and encrypt the child private key, input from js env.
    *
    * **Returns**:
    * - `Result<String, JsValue>` - A String Promise that resolves to the hex-encoded SPHINCS+ lock argument (processed SPHINCS+ public key) of the account on success,
@@ -92,14 +92,15 @@ export class KeyVault {
    *
    * **Async**: Yes
    */
-  gen_new_account(password: Uint8Array): Promise<string>;
+  gen_new_account(js_password: Uint8Array): Promise<string>;
   /**
    * Imports master seed then encrypting it with the provided password.
    * Overwrite the existing master seed.
    *
    * **Parameters**:
-   * - `seed_phrase: Uint8Array` - The mnemonic phrase as a valid UTF-8 encoded Uint8Array to import. There're only 3 options accepted: 36, 54 or 72 words.
-   * - `password: Uint8Array` - The password used to encrypt the translated master seed.
+   * - `js_seed_phrase: Uint8Array` - The mnemonic phrase as a valid UTF-8 encoded Uint8Array to import, input from js env.
+   *    There're only 3 options accepted: 36, 54 or 72 words.
+   * - `js_password: Uint8Array` - The password used to encrypt the translated master seed, input from js env.
    *
    * **Returns**:
    * - `Result<(), JsValue>` - A JavaScript Promise that resolves to `undefined` on success,
@@ -109,12 +110,12 @@ export class KeyVault {
    *
    * **Warning**: Handle the mnemonic in JavaScript side carefully.
    */
-  import_seed_phrase(seed_phrase: Uint8Array, password: Uint8Array): Promise<void>;
+  import_seed_phrase(js_seed_phrase: Uint8Array, js_password: Uint8Array): Promise<void>;
   /**
    * Exports the master seed in the form of a custom bip39 mnemonic phrase. There're only 3 options: 36, 54 or 72 words.
    *
    * **Parameters**:
-   * - `password: Uint8Array` - The password used to decrypt the master seed.
+   * - `js_password: Uint8Array` - The password used to decrypt the master seed, input from js env.
    *
    * **Returns**:
    * - `Result<Uint8Array, JsValue>` - A JavaScript Promise that resolves to the mnemonic as a UTF-8 encoded `Uint8Array` on success,
@@ -127,13 +128,14 @@ export class KeyVault {
    * 
    * **Async**: Yes
    */
-  export_seed_phrase(password: Uint8Array): Promise<Uint8Array>;
+  export_seed_phrase(js_password: Uint8Array): Promise<Uint8Array>;
   /**
    * Sign and produce a valid signature for the Quantum Resistant lock script.
    *
    * **Parameters**:
-   * - `password: Uint8Array` - The password used to decrypt the private key.
-   * - `lock_args: String` - The hex-encoded lock script's arguments corresponding to the SPHINCS+ public key of the account that signs. This is a CKB specific thing, check https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0022-transaction-structure/script-p2.png for more information.
+   * - `js_password: Uint8Array` - The password used to decrypt the private key, input from js env.
+   * - `lock_args: String` - The hex-encoded lock script's arguments corresponding to the SPHINCS+ public key of the account that signs.
+   *    This is a CKB specific thing, check https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0022-transaction-structure/script-p2.png for more information.
    * - `message: Uint8Array` - The message to be signed.
    *
    * **Returns**:
@@ -142,12 +144,12 @@ export class KeyVault {
    *
    * **Async**: Yes
    */
-  sign(password: Uint8Array, lock_args: string, message: Uint8Array): Promise<Uint8Array>;
+  sign(js_password: Uint8Array, lock_args: string, message: Uint8Array): Promise<Uint8Array>;
   /**
    * Supporting wallet recovery - quickly derives a list of lock script arguments (processed public keys).
    *
    * **Parameters**:
-   * - `password: Uint8Array` - The password used to decrypt the master seed used for account generation.
+   * - `js_password: Uint8Array` - The password used to decrypt the master seed used for account generation, input from js env.
    * - `start_index: u32` - The starting index for derivation.
    * - `count: u32` - The number of sequential lock scripts arguments to derive.
    *
@@ -157,12 +159,12 @@ export class KeyVault {
    * 
    * **Async**: Yes
    */
-  try_gen_account_batch(password: Uint8Array, start_index: number, count: number): Promise<string[]>;
+  try_gen_account_batch(js_password: Uint8Array, start_index: number, count: number): Promise<string[]>;
   /**
    * Supporting wallet recovery - Recovers the wallet by deriving and storing private keys for the first N accounts.
    *
    * **Parameters**:
-   * - `password: Uint8Array` - The password used to decrypt the master seed.
+   * - `js_password: Uint8Array` - The password used to decrypt the master seed, input from js env.
    * - `count: u32` - The number of accounts to recover (from index 0 to count-1).
    *
    * **Returns**:
@@ -170,7 +172,7 @@ export class KeyVault {
    *
    * **Async**: Yes
    */
-  recover_accounts(password: Uint8Array, count: number): Promise<string[]>;
+  recover_accounts(js_password: Uint8Array, count: number): Promise<string[]>;
   /**
    * The one parameter set chosen for QuantumPurse KeyVault setup in all 12 NIST-approved SPHINCS+ FIPS205 variants
    */
@@ -202,7 +204,7 @@ export class Util {
    * By default will require at least 20 characters
    *
    * **Parameters**:
-   * - `password: Uint8Array` - utf8 serialized password.
+   * - `js_password: Uint8Array` - utf8 serialized password, input from js env.
    *
    * **Returns**:
    * - `Result<u16, JsValue>` - The strength of the password measured in bit on success,
@@ -210,7 +212,7 @@ export class Util {
    *
    * **Async**: no
    */
-  static password_checker(password: Uint8Array): number;
+  static password_checker(js_password: Uint8Array): number;
 }
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
@@ -241,11 +243,11 @@ export interface InitOutput {
   readonly __wbindgen_export_4: WebAssembly.Table;
   readonly __wbindgen_export_5: WebAssembly.Table;
   readonly __externref_table_dealloc: (a: number) => void;
-  readonly closure90_externref_shim_multivalue_shim: (a: number, b: number, c: any) => [number, number];
-  readonly closure146_externref_shim: (a: number, b: number, c: any) => void;
-  readonly _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__ha3fd77ffc94e9c08: (a: number, b: number) => void;
-  readonly closure165_externref_shim: (a: number, b: number, c: any) => void;
-  readonly closure245_externref_shim: (a: number, b: number, c: any, d: any) => void;
+  readonly closure124_externref_shim_multivalue_shim: (a: number, b: number, c: any) => [number, number];
+  readonly closure148_externref_shim: (a: number, b: number, c: any) => void;
+  readonly closure178_externref_shim: (a: number, b: number, c: any) => void;
+  readonly _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h930b91a0c90514ba: (a: number, b: number) => void;
+  readonly closure247_externref_shim: (a: number, b: number, c: any, d: any) => void;
   readonly __wbindgen_start: () => void;
 }
 
@@ -273,4 +275,4 @@ export default function __wbg_init (module_or_path?: { module_or_path: InitInput
 
 ## Example
 
-Refer to [QuantumPurse project](https://github.com/tea2x/quantum-purse-web-static.git)
+Refer to [QuantumPurse project](https://github.com/tea2x/quantum-purse.git)
