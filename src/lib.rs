@@ -170,7 +170,7 @@ impl KeyVault {
     /// Throw if the master seed already exists.
     ///
     /// **Parameters**:
-    /// - `password: Uint8Array` - The password used to encrypt the generated master seed.
+    /// - `js_password: Uint8Array` - The password used to encrypt the generated master seed, input from js env.
     ///
     /// **Returns**:
     /// - `Result<(), JsValue>` - A JavaScript Promise that resolves to `undefined` on success,
@@ -178,8 +178,9 @@ impl KeyVault {
     ///
     /// **Async**: Yes
     #[wasm_bindgen]
-    pub async fn generate_master_seed(&self, password: Uint8Array) -> Result<(), JsValue> {
-        let password = SecureVec::from_slice(&password.to_vec());
+    pub async fn generate_master_seed(&self, js_password: Uint8Array) -> Result<(), JsValue> {
+        let password = SecureVec::from_slice(&js_password.to_vec());
+        js_password.fill(0, 0, js_password.length());
 
         if password.len() == 0 {
             return Err(JsValue::from_str("Password cannot be empty"));
@@ -204,7 +205,7 @@ impl KeyVault {
     /// Generates a new SPHINCS+ account - a SPHINCS+ child account derived from the master seed, encrypts the private key with the password, and stores it in IndexedDB.
     ///
     /// **Parameters**:
-    /// - `password: Uint8Array` - The password used to decrypt the master seed and encrypt the child private key.
+    /// - `js_password: Uint8Array` - The password used to decrypt the master seed and encrypt the child private key, input from js env.
     ///
     /// **Returns**:
     /// - `Result<String, JsValue>` - A String Promise that resolves to the hex-encoded SPHINCS+ lock argument (processed SPHINCS+ public key) of the account on success,
@@ -212,8 +213,9 @@ impl KeyVault {
     ///
     /// **Async**: Yes
     #[wasm_bindgen]
-    pub async fn gen_new_account(&self, password: Uint8Array) -> Result<String, JsValue> {
-        let password = SecureVec::from_slice(&password.to_vec());
+    pub async fn gen_new_account(&self, js_password: Uint8Array) -> Result<String, JsValue> {
+        let password = SecureVec::from_slice(&js_password.to_vec());
+        js_password.fill(0, 0, js_password.length());
 
         if password.len() == 0 {
             return Err(JsValue::from_str("Password cannot be empty"));
@@ -251,8 +253,9 @@ impl KeyVault {
     /// Overwrite the existing master seed.
     ///
     /// **Parameters**:
-    /// - `seed_phrase: Uint8Array` - The mnemonic phrase as a valid UTF-8 encoded Uint8Array to import. There're only 3 options accepted: 36, 54 or 72 words.
-    /// - `password: Uint8Array` - The password used to encrypt the translated master seed.
+    /// - `js_seed_phrase: Uint8Array` - The mnemonic phrase as a valid UTF-8 encoded Uint8Array to import, input from js env.
+    ///    There're only 3 options accepted: 36, 54 or 72 words.
+    /// - `js_password: Uint8Array` - The password used to encrypt the translated master seed, input from js env.
     ///
     /// **Returns**:
     /// - `Result<(), JsValue>` - A JavaScript Promise that resolves to `undefined` on success,
@@ -264,17 +267,20 @@ impl KeyVault {
     #[wasm_bindgen]
     pub async fn import_seed_phrase(
         &self,
-        seed_phrase: Uint8Array,
-        password: Uint8Array,
+        js_seed_phrase: Uint8Array,
+        js_password: Uint8Array,
     ) -> Result<(), JsValue> {
-        let password = SecureVec::from_slice(&password.to_vec());
+        let password = SecureVec::from_slice(&js_password.to_vec());
+        js_password.fill(0, 0, js_password.length());
+        
+        let seed_phrase_str = SecureString::from_utf8(js_seed_phrase.to_vec())
+            .map_err(|e| JsValue::from_str(&format!("Invalid UTF-8: {}", e)))?;
+        js_seed_phrase.fill(0, 0, js_seed_phrase.length());
 
         if password.len() == 0 {
             return Err(JsValue::from_str("Password cannot be empty"));
         }
         
-        let seed_phrase_str = SecureString::from_utf8(seed_phrase.to_vec())
-            .map_err(|e| JsValue::from_str(&format!("Invalid UTF-8: {}", e)))?;
         let words: Vec<&str> = seed_phrase_str.split_whitespace().collect();
         let word_count = words.len();
 
@@ -312,7 +318,7 @@ impl KeyVault {
     /// Exports the master seed in the form of a custom bip39 mnemonic phrase. There're only 3 options: 36, 54 or 72 words.
     ///
     /// **Parameters**:
-    /// - `password: Uint8Array` - The password used to decrypt the master seed.
+    /// - `js_password: Uint8Array` - The password used to decrypt the master seed, input from js env.
     ///
     /// **Returns**:
     /// - `Result<Uint8Array, JsValue>` - A JavaScript Promise that resolves to the mnemonic as a UTF-8 encoded `Uint8Array` on success,
@@ -325,8 +331,9 @@ impl KeyVault {
     /// 
     /// **Async**: Yes
     #[wasm_bindgen]
-    pub async fn export_seed_phrase(&self, password: Uint8Array) -> Result<Uint8Array, JsValue> {
-        let password = SecureVec::from_slice(&password.to_vec());
+    pub async fn export_seed_phrase(&self, js_password: Uint8Array) -> Result<Uint8Array, JsValue> {
+        let password = SecureVec::from_slice(&js_password.to_vec());
+        js_password.fill(0, 0, js_password.length());
 
         if password.len() == 0 {
             return Err(JsValue::from_str("Password cannot be empty"));
@@ -353,7 +360,7 @@ impl KeyVault {
     /// Sign and produce a valid signature for the Quantum Resistant lock script.
     ///
     /// **Parameters**:
-    /// - `password: Uint8Array` - The password used to decrypt the private key.
+    /// - `js_password: Uint8Array` - The password used to decrypt the private key, input from js env.
     /// - `lock_args: String` - The hex-encoded lock script's arguments corresponding to the SPHINCS+ public key of the account that signs.
     ///    This is a CKB specific thing, check https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0022-transaction-structure/script-p2.png for more information.
     /// - `message: Uint8Array` - The message to be signed.
@@ -366,11 +373,12 @@ impl KeyVault {
     #[wasm_bindgen]
     pub async fn sign(
         &self,
-        password: Uint8Array,
+        js_password: Uint8Array,
         lock_args: String,
         message: Uint8Array,
     ) -> Result<Uint8Array, JsValue> {
-        let password = SecureVec::from_slice(&password.to_vec());
+        let password = SecureVec::from_slice(&js_password.to_vec());
+        js_password.fill(0, 0, js_password.length());
 
         if password.len() == 0 {
             return Err(JsValue::from_str("Password cannot be empty"));
@@ -403,7 +411,7 @@ impl KeyVault {
     /// Supporting wallet recovery - quickly derives a list of lock script arguments (processed public keys).
     ///
     /// **Parameters**:
-    /// - `password: Uint8Array` - The password used to decrypt the master seed used for account generation.
+    /// - `js_password: Uint8Array` - The password used to decrypt the master seed used for account generation, input from js env.
     /// - `start_index: u32` - The starting index for derivation.
     /// - `count: u32` - The number of sequential lock scripts arguments to derive.
     ///
@@ -415,11 +423,12 @@ impl KeyVault {
     #[wasm_bindgen]
     pub async fn try_gen_account_batch(
         &self,
-        password: Uint8Array,
+        js_password: Uint8Array,
         start_index: u32,
         count: u32,
     ) -> Result<Vec<String>, JsValue> {
-        let password = SecureVec::from_slice(&password.to_vec());
+        let password = SecureVec::from_slice(&js_password.to_vec());
+        js_password.fill(0, 0, js_password.length());
 
         if password.len() == 0 {
             return Err(JsValue::from_str("Password cannot be empty"));
@@ -447,7 +456,7 @@ impl KeyVault {
     /// Supporting wallet recovery - Recovers the wallet by deriving and storing private keys for the first N accounts.
     ///
     /// **Parameters**:
-    /// - `password: Uint8Array` - The password used to decrypt the master seed.
+    /// - `js_password: Uint8Array` - The password used to decrypt the master seed, input from js env.
     /// - `count: u32` - The number of accounts to recover (from index 0 to count-1).
     ///
     /// **Returns**:
@@ -457,10 +466,11 @@ impl KeyVault {
     #[wasm_bindgen]
     pub async fn recover_accounts(
         &self,
-        password: Uint8Array,
+        js_password: Uint8Array,
         count: u32,
     ) -> Result<Vec<String>, JsValue> {
-        let password = SecureVec::from_slice(&password.to_vec());
+        let password = SecureVec::from_slice(&js_password.to_vec());
+        js_password.fill(0, 0, js_password.length());
 
         if password.len() == 0 {
             return Err(JsValue::from_str("Password cannot be empty"));
@@ -558,7 +568,7 @@ impl Util {
     /// By default will require at least 20 characters
     ///
     /// **Parameters**:
-    /// - `password: Uint8Array` - utf8 serialized password.
+    /// - `js_password: Uint8Array` - utf8 serialized password, input from js env.
     ///
     /// **Returns**:
     /// - `Result<u16, JsValue>` - The strength of the password measured in bit on success,
@@ -566,8 +576,9 @@ impl Util {
     ///
     /// **Async**: no
     #[wasm_bindgen]
-    pub fn password_checker(password: Uint8Array) -> Result<u32, JsValue> {
-        let password = SecureVec::from_slice(&password.to_vec());
+    pub fn password_checker(js_password: Uint8Array) -> Result<u32, JsValue> {
+        let password = SecureVec::from_slice(&js_password.to_vec());
+        js_password.fill(0, 0, 0);
 
         if password.len() == 0 {
             return Err(JsValue::from_str("Password cannot be empty"));
