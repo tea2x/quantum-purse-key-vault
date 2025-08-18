@@ -15,9 +15,9 @@ This module provides a secure authentication interface to manage FIPS205 (former
 | **Password hashing**  | Scrypt               |
 
 ### Custom BIP39
-SPHINCS+ offers 12 parameter sets, grouped by three security parameters: 128-bit, 192-bit, and 256-bit. These require seeds of 48 bytes, 72 bytes, and 96 bytes respectively, used across key generation and signing.
+BIP39 is chosen as the mnemonic backup format due to its user-friendliness and quantum resistance.
 
-This library introduces a custom BIP39 mnemonic backup format for each security parameter of SPHINCS+ as below:
+SPHINCS+ offers 12 parameter sets, grouped by three security parameters: 128-bit, 192-bit, and 256-bit. These require seeds of 48 bytes, 72 bytes, and 96 bytes respectively used across key generation and signing. As BIP39 supports max 32 bytes so this library introduces a custom(combined) BIP39 mnemonic backup format for each security parameter of SPHINCS+ as below:
 
 |    SPHINCS+ security parameter      |  BIP39 entropy level  |   Word count    |
 |-------------------------------------|-----------------------|-----------------|
@@ -29,6 +29,36 @@ This library introduces a custom BIP39 mnemonic backup format for each security 
 - SHA2-256s will require users to back up 72 words of mnemonic seed.
 - SHAKE-192s will require users to back up 54 words of mnemonic seed.
 - SHA2-128f will require users to back up 36 words of mnemonic seed.
+
+### Key Derivation
+Quantum Purse uses a simple custom deterministic derivation scheme based on scrypt instead of the standard BIP32.
+
+###### Key Tree:
+```
+master_seed
+   ├─ index 0 → sphincs+ key 1
+   ├─ index 1 → sphincs+ key 2
+   ├─ index 2 → sphincs+ key 3
+   └─ ...
+```
+
+###### Derivation Flow:
+```
+master_seed
+     │
+     ▼
+(seed_part1, seed_part2, seed_part3)
+     │
+     ├─ scrypt("ckb/quantum-purse/sphincs-plus/", index)
+     │
+     ▼
+(sk_seed, sk_prf, pk_seed)
+     │
+     ├─ sphincs+_key_gen()
+     │
+     ▼
+(sphincs+ public_key, sphincs+ private_key)
+```
 
 ### Dependency
 - Rust & Cargo

@@ -9,8 +9,8 @@ macro_rules! debug {
 macro_rules! spx_keygen {
     ($kg:ty, $n:expr, $seed:expr, $index:expr) => {{
         const N: usize = $n;
-        /* The following scrypt param is used together with a very high entropy source - a 16/24/32 bytes
-        mnemonic seephrase to serve as QuantumPurse KDF. Security level for the derived keys isn't
+        /* The following scrypt param is used together with a high entropy source - a 16/24/32 bytes
+        mnemonic seed to serve as QuantumPurse KDF. Security level for the derived keys isn't
         upgraded with Scrypt, each attacker's guess simply gets longer to run.*/
         let param = ScryptParam {
             log_n: 10,
@@ -31,7 +31,7 @@ macro_rules! spx_keygen {
         let sk_prf_kd_ref: &[u8; N] = sk_prf_kd.as_ref().try_into().map_err(|_| "Invalid seed length")?;
         let pk_seed_kd_ref: &[u8; N] = pk_seed_kd.as_ref().try_into().map_err(|_| "Invalid seed length")?;
 
-        let (pub_key, pri_key) = <$kg>::keygen_with_seeds(sk_seed_kd_ref,sk_prf_kd_ref,pk_seed_kd_ref);
+        let (pub_key, pri_key) = <$kg>::keygen_with_seeds(sk_seed_kd_ref, sk_prf_kd_ref, pk_seed_kd_ref);
 
         Ok((
             SecureVec::from_slice(&pub_key.into_bytes()),
