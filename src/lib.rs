@@ -177,6 +177,10 @@ impl KeyVault {
     ///   or rejects with a JavaScript error on failure.
     ///
     /// **Async**: Yes
+    /// 
+    /// **Notes**:
+    /// - For security reasons, the provided `js_password` buffer is cleared immediately after it
+    ///   has been copied into a secure container.
     #[wasm_bindgen]
     pub async fn generate_master_seed(&self, js_password: Uint8Array) -> Result<(), JsValue> {
         let password = SecureVec::from_slice(&js_password.to_vec());
@@ -212,6 +216,10 @@ impl KeyVault {
     ///   or rejects with a JavaScript error on failure.
     ///
     /// **Async**: Yes
+    /// 
+    /// **Notes**:
+    /// - For security reasons, the provided `js_password` buffer is cleared immediately after it
+    ///   has been copied into a secure container.
     #[wasm_bindgen]
     pub async fn gen_new_account(&self, js_password: Uint8Array) -> Result<String, JsValue> {
         let password = SecureVec::from_slice(&js_password.to_vec());
@@ -263,7 +271,9 @@ impl KeyVault {
     ///
     /// **Async**: Yes
     ///
-    /// **Warning**: Handle the mnemonic in JavaScript side carefully.
+    /// **Notes**:
+    /// - For security reasons, the provided `js_password` and the js_seed_phrase buffers are cleared immediately after they
+    ///   have been copied into secure containers.
     #[wasm_bindgen]
     pub async fn import_seed_phrase(
         &self,
@@ -326,10 +336,13 @@ impl KeyVault {
     ///
     /// **Async**: Yes
     ///
-    /// **Warning**: Exporting the mnemonic exposes it in JavaScript, which may pose a security risk.
-    /// Proper zeroization of exported seed phrase is the responsibility of the caller.
+    /// **Warning**: Exporting the mnemonic exposes it in JavaScript may pose a security risk.
     /// 
     /// **Async**: Yes
+    /// 
+    /// **Notes**:
+    /// - For security reasons, the provided `js_password` buffer is cleared immediately after it
+    ///   has been copied into a secure container.
     #[wasm_bindgen]
     pub async fn export_seed_phrase(&self, js_password: Uint8Array) -> Result<Uint8Array, JsValue> {
         let password = SecureVec::from_slice(&js_password.to_vec());
@@ -370,6 +383,10 @@ impl KeyVault {
     ///   or a JavaScript error on failure.
     ///
     /// **Async**: Yes
+    /// 
+    /// **Notes**:
+    /// - For security reasons, the provided `js_password` buffer is cleared immediately after it
+    ///   has been copied into a secure container.
     #[wasm_bindgen]
     pub async fn sign(
         &self,
@@ -420,6 +437,10 @@ impl KeyVault {
     ///   or a JavaScript error on failure.
     /// 
     /// **Async**: Yes
+    /// 
+    /// **Notes**:
+    /// - For security reasons, the provided `js_password` buffer is cleared immediately after it
+    ///   has been copied into a secure container.
     #[wasm_bindgen]
     pub async fn try_gen_account_batch(
         &self,
@@ -463,6 +484,10 @@ impl KeyVault {
     /// - `Result<(), JsValue>` - A list of newly generated sphincs+ lock script arguments (processed public keys) on success, or a JavaScript error on failure.
     ///
     /// **Async**: Yes
+    /// 
+    /// **Notes**:
+    /// - For security reasons, the provided `js_password` buffer is cleared immediately after it
+    ///   has been copied into a secure container.
     #[wasm_bindgen]
     pub async fn recover_accounts(
         &self,
@@ -575,6 +600,10 @@ impl Util {
     ///   or a JavaScript error on failure.
     ///
     /// **Async**: no
+    /// 
+    /// **Notes**:
+    /// - For security reasons, the provided `js_password` buffer is cleared immediately after it
+    ///   has been copied into a secure container.
     #[wasm_bindgen]
     pub fn password_checker(js_password: Uint8Array) -> Result<u32, JsValue> {
         let password = SecureVec::from_slice(&js_password.to_vec());
