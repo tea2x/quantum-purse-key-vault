@@ -78,6 +78,10 @@ export class KeyVault {
    *   or rejects with a JavaScript error on failure.
    *
    * **Async**: Yes
+   * 
+   * **Notes**:
+   * - For security reasons, the provided `js_password` buffer is cleared immediately after it
+   *   has been copied into a secure container.
    */
   generate_master_seed(js_password: Uint8Array): Promise<void>;
   /**
@@ -91,6 +95,10 @@ export class KeyVault {
    *   or rejects with a JavaScript error on failure.
    *
    * **Async**: Yes
+   * 
+   * **Notes**:
+   * - For security reasons, the provided `js_password` buffer is cleared immediately after it
+   *   has been copied into a secure container.
    */
   gen_new_account(js_password: Uint8Array): Promise<string>;
   /**
@@ -108,7 +116,9 @@ export class KeyVault {
    *
    * **Async**: Yes
    *
-   * **Warning**: Handle the mnemonic in JavaScript side carefully.
+   * **Notes**:
+   * - For security reasons, the provided `js_password` and the js_seed_phrase buffers are cleared immediately after they
+   *   have been copied into secure containers.
    */
   import_seed_phrase(js_seed_phrase: Uint8Array, js_password: Uint8Array): Promise<void>;
   /**
@@ -123,10 +133,13 @@ export class KeyVault {
    *
    * **Async**: Yes
    *
-   * **Warning**: Exporting the mnemonic exposes it in JavaScript, which may pose a security risk.
-   * Proper zeroization of exported seed phrase is the responsibility of the caller.
+   * **Warning**: Exporting the mnemonic exposes it in JavaScript may pose a security risk.
    * 
    * **Async**: Yes
+   * 
+   * **Notes**:
+   * - For security reasons, the provided `js_password` buffer is cleared immediately after it
+   *   has been copied into a secure container.
    */
   export_seed_phrase(js_password: Uint8Array): Promise<Uint8Array>;
   /**
@@ -143,6 +156,10 @@ export class KeyVault {
    *   or a JavaScript error on failure.
    *
    * **Async**: Yes
+   * 
+   * **Notes**:
+   * - For security reasons, the provided `js_password` buffer is cleared immediately after it
+   *   has been copied into a secure container.
    */
   sign(js_password: Uint8Array, lock_args: string, message: Uint8Array): Promise<Uint8Array>;
   /**
@@ -158,6 +175,10 @@ export class KeyVault {
    *   or a JavaScript error on failure.
    * 
    * **Async**: Yes
+   * 
+   * **Notes**:
+   * - For security reasons, the provided `js_password` buffer is cleared immediately after it
+   *   has been copied into a secure container.
    */
   try_gen_account_batch(js_password: Uint8Array, start_index: number, count: number): Promise<string[]>;
   /**
@@ -171,6 +192,10 @@ export class KeyVault {
    * - `Result<(), JsValue>` - A list of newly generated sphincs+ lock script arguments (processed public keys) on success, or a JavaScript error on failure.
    *
    * **Async**: Yes
+   * 
+   * **Notes**:
+   * - For security reasons, the provided `js_password` buffer is cleared immediately after it
+   *   has been copied into a secure container.
    */
   recover_accounts(js_password: Uint8Array, count: number): Promise<string[]>;
   /**
@@ -211,6 +236,10 @@ export class Util {
    *   or a JavaScript error on failure.
    *
    * **Async**: no
+   * 
+   * **Notes**:
+   * - For security reasons, the provided `js_password` buffer is cleared immediately after it
+   *   has been copied into a secure container.
    */
   static password_checker(js_password: Uint8Array): number;
 }
