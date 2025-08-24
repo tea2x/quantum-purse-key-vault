@@ -186,8 +186,8 @@ impl KeyVault {
         let password = SecureVec::from_slice(&js_password.to_vec());
         js_password.fill(0, 0, js_password.length());
 
-        if password.len() == 0 {
-            return Err(JsValue::from_str("Password cannot be empty"));
+        if password.is_empty() || password.is_uninitialized() {
+            return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
         }
 
         if self.has_master_seed().await? {
@@ -225,8 +225,8 @@ impl KeyVault {
         let password = SecureVec::from_slice(&js_password.to_vec());
         js_password.fill(0, 0, js_password.length());
 
-        if password.len() == 0 {
-            return Err(JsValue::from_str("Password cannot be empty"));
+        if password.is_empty() || password.is_uninitialized() {
+            return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
         }
 
         // Get and decrypt the master seed
@@ -287,10 +287,14 @@ impl KeyVault {
             .map_err(|e| JsValue::from_str(&format!("Invalid UTF-8: {}", e)))?;
         js_seed_phrase.fill(0, 0, js_seed_phrase.length());
 
-        if password.len() == 0 {
-            return Err(JsValue::from_str("Password cannot be empty"));
+        if password.is_empty() || password.is_uninitialized() {
+            return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
         }
-        
+
+        if seed_phrase_str.is_empty() || seed_phrase_str.is_uninitialized() {
+            return Err(JsValue::from_str("Seed phrase cannot be empty or uninitialized"));
+        }
+
         let words: Vec<&str> = seed_phrase_str.split_whitespace().collect();
         let word_count = words.len();
 
@@ -348,8 +352,8 @@ impl KeyVault {
         let password = SecureVec::from_slice(&js_password.to_vec());
         js_password.fill(0, 0, js_password.length());
 
-        if password.len() == 0 {
-            return Err(JsValue::from_str("Password cannot be empty"));
+        if password.is_empty() || password.is_uninitialized() {
+            return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
         }
 
         let payload = db::get_encrypted_seed()
@@ -397,8 +401,8 @@ impl KeyVault {
         let password = SecureVec::from_slice(&js_password.to_vec());
         js_password.fill(0, 0, js_password.length());
 
-        if password.len() == 0 {
-            return Err(JsValue::from_str("Password cannot be empty"));
+        if password.is_empty() || password.is_uninitialized() {
+            return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
         }
 
         let account = db::get_account(&lock_args)
@@ -451,8 +455,8 @@ impl KeyVault {
         let password = SecureVec::from_slice(&js_password.to_vec());
         js_password.fill(0, 0, js_password.length());
 
-        if password.len() == 0 {
-            return Err(JsValue::from_str("Password cannot be empty"));
+        if password.is_empty() || password.is_uninitialized() {
+            return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
         }
 
         // Get and decrypt the master seed
@@ -497,8 +501,8 @@ impl KeyVault {
         let password = SecureVec::from_slice(&js_password.to_vec());
         js_password.fill(0, 0, js_password.length());
 
-        if password.len() == 0 {
-            return Err(JsValue::from_str("Password cannot be empty"));
+        if password.is_empty() || password.is_uninitialized() {
+            return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
         }
 
         // Get and decrypt the master seed
@@ -609,8 +613,8 @@ impl Util {
         let password = SecureVec::from_slice(&js_password.to_vec());
         js_password.fill(0, 0, js_password.length());
 
-        if password.len() == 0 {
-            return Err(JsValue::from_str("Password cannot be empty"));
+        if password.is_empty() || password.is_uninitialized() {
+            return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
         }
         
         let password_str =

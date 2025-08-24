@@ -32,6 +32,10 @@ impl SecureString {
         }
         self.0.push_str(s);
     }
+
+    pub fn is_uninitialized(&self) -> bool {
+        self.0.as_bytes().iter().all(|&byte| byte == 0)
+    }
 }
 
 impl Drop for SecureString {

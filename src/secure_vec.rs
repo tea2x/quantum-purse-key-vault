@@ -24,6 +24,10 @@ impl SecureVec {
     pub fn extend(&mut self, slice: &[u8]) {
         self.0.extend_from_slice(slice);
     }
+
+    pub fn is_uninitialized(&self) -> bool {
+        self.0.iter().all(|&byte| byte == 0)
+    }
 }
 
 impl Zeroize for SecureVec {
