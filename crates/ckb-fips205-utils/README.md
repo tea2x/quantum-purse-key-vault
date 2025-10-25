@@ -1,0 +1,1 @@
+This crate is reused from https://github.com/cryptape/quantum-resistant-lock-script

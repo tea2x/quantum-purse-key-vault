@@ -26,12 +26,12 @@ SPHINCS+ offers 12 parameter sets, grouped by three security parameters: 128-bit
 |    256 bit ~ 96 bytes ~ 3*32 bytes  |       3*32 bytes      | 3*24 = 72 words |
 
 ###### For example:
-- SHA2-256s will require users to back up 72 words of mnemonic seed.
-- SHAKE-192s will require users to back up 54 words of mnemonic seed.
-- SHA2-128f will require users to back up 36 words of mnemonic seed.
+- SHA2-256s will require users to back up 72 words of mnemonic phrase.
+- SHAKE-192s will require users to back up 54 words of mnemonic phrase.
+- SHA2-128f will require users to back up 36 words of mnemonic phrase.
 
 ### Key Derivation
-Quantum Purse uses a simple custom deterministic derivation scheme based on scrypt instead of the standard BIP32.
+Although "BIP32 hardened key derivation" doesn't involve with ECDSA and can fit in the arch of Quantum Purse but because Scrypt has been used already for the local encryption/decryption, I think using Scrypt-based KDF(Key Derivation Function) here will keep this wallet's dependency list minimum. That's why Quantum Purse uses a simple custom KDF based on Scrypt instead of the 'hardened option' from the standard BIP32.
 
 ###### Key Tree:
 ```
@@ -49,7 +49,7 @@ master_seed
      ▼
 (seed_part1, seed_part2, seed_part3)
      │
-     ├─ scrypt("ckb/quantum-purse/sphincs-plus/", index)
+     ├─ Scrypt("ckb/quantum-purse/sphincs-plus/", index)
      │
      ▼
 (sk_seed, sk_prf, pk_seed)
@@ -85,6 +85,6 @@ npm login
 npm publish
 ```
 
-### Usage xample
+### Usage example
 
 Refer to [QuantumPurse project](https://github.com/tea2x/quantum-purse-web-static.git).
