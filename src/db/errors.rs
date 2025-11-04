@@ -1,11 +1,11 @@
-use indexed_db_futures::error::Error as DBError;
-use serde_wasm_bindgen::Error as SerdeError;
 use std::fmt;
+use std::io;
 
 #[derive(Debug)]
 pub enum KeyVaultDBError {
     SerializationError(String),
     DatabaseError(String),
+    IoError(String),
 }
 
 impl fmt::Display for KeyVaultDBError {
@@ -13,24 +13,21 @@ impl fmt::Display for KeyVaultDBError {
         match self {
             KeyVaultDBError::SerializationError(msg) => write!(f, "Serialization error: {}", msg),
             KeyVaultDBError::DatabaseError(msg) => write!(f, "Database error: {}", msg),
+            KeyVaultDBError::IoError(msg) => write!(f, "IO error: {}", msg),
         }
     }
 }
 
-impl KeyVaultDBError {
-    pub fn to_jsvalue(&self) -> wasm_bindgen::JsValue {
-        wasm_bindgen::JsValue::from_str(&self.to_string())
+impl std::error::Error for KeyVaultDBError {}
+
+impl From<io::Error> for KeyVaultDBError {
+    fn from(e: io::Error) -> Self {
+        KeyVaultDBError::IoError(e.to_string())
     }
 }
 
-impl From<DBError> for KeyVaultDBError {
-    fn from(e: DBError) -> Self {
-        KeyVaultDBError::DatabaseError(e.to_string())
-    }
-}
-
-impl From<SerdeError> for KeyVaultDBError {
-    fn from(e: SerdeError) -> Self {
+impl From<serde_json::Error> for KeyVaultDBError {
+    fn from(e: serde_json::Error) -> Self {
         KeyVaultDBError::SerializationError(e.to_string())
     }
 }

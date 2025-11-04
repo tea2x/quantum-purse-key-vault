@@ -1,18 +1,19 @@
 # Quantum Purse key vault
 
-This module provides a secure authentication interface to manage FIPS205 (formerly SPHINCS+) cryptographic keys for CKB blockchain using Rust and WebAssembly.
+A cross-platform CLI tool for managing FIPS205 (formerly SPHINCS+) cryptographic keys for the CKB blockchain using Rust.
 
 ###### <u>Feature list</u>:
 
 | Feature               | Details              |
 |-----------------------|----------------------|
 | **Signature type**    | SPHINCS+             |
-| **Store model**       | Indexed DB           |
+| **Store model**       | File-based (JSON)    |
 | **Mnemonic standard** | Custom BIP39 English |
 | **Local encryption**  | AES256               |
 | **Key derivation**    | Scrypt               |
 | **Authentication**    | Password             |
 | **Password hashing**  | Scrypt               |
+| **Platform**          | macOS, Windows, Linux |
 
 ### Custom BIP39
 BIP39 is chosen as the mnemonic backup format due to its user-friendliness and quantum resistance.
@@ -60,31 +61,79 @@ master_seed
 (sphincs+ public_key, sphincs+ private_key)
 ```
 
-### Dependency
-- Rust & Cargo
-- Wasm-pack
-- Npm
+### Dependencies
+- Rust & Cargo (1.70+)
 
 ### Build
 ```shell
-# init submodule quantum-resistant-lockscript
+# Initialize submodule quantum-resistant-lockscript
 git submodule update --init
 
-# run build script
+# Build release binary
 ./build.sh
+# or
+cargo build --release
 
-# test
+# Run tests
 cargo test
+
+# Install globally
+cargo install --path .
 ```
 
-### Package and publish
+### Usage
+
+The CLI provides the following commands:
+
 ```shell
-cd dist
-npm pack
-npm login
-npm publish
+# Initialize a new wallet
+qpkv init --variant Sha2256S
+
+# Import an existing wallet
+qpkv import --variant Sha2256S
+
+# Export seed phrase
+qpkv export --variant Sha2256S
+
+# Generate a new account
+qpkv new-account --variant Sha2256S
+
+# List all accounts
+qpkv list-accounts
+
+# Sign a message
+qpkv sign --variant Sha2256S --lock-args <LOCK_ARGS> --message <HEX_MESSAGE>
+
+# Recover accounts
+qpkv recover --variant Sha2256S --count 5
+
+# Generate account batch for discovery
+qpkv batch --variant Sha2256S --start 0 --count 10
+
+# Check password strength
+qpkv check-password
+
+# Clear all wallet data
+qpkv clear
+
+# Get CKB transaction message hash
+qpkv get-message --tx-file <PATH_TO_MOCK_TX>
+
+# Show help
+qpkv --help
 ```
 
-### Usage example
+### Data Storage
 
-Refer to [QuantumPurse project](https://github.com/tea2x/quantum-purse-web-static.git).
+Wallet data is stored in `~/.quantum-purse/`:
+- `master_seed.json` - Encrypted master seed
+- `accounts.json` - Encrypted account private keys
+
+### Supported SPHINCS+ Variants
+
+- Sha2128F, Sha2128S
+- Sha2192F, Sha2192S
+- Sha2256F, Sha2256S
+- Shake128F, Shake128S
+- Shake192F, Shake192S
+- Shake256F, Shake256S

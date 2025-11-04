@@ -1,7 +1,7 @@
 #[macro_export]
 macro_rules! debug {
     ($($arg:tt)*) => {
-        web_sys::console::log_1(&format!($($arg)*).into());
+        eprintln!($($arg)*);
     }
 }
 
@@ -72,5 +72,40 @@ macro_rules! spx_sign {
         .concat();
 
         Ok(Uint8Array::from(ckb_qr_full_signature.as_slice()))
+    }};
+}
+
+#[macro_export]
+macro_rules! spx_sign_native {
+    ($module:ident, $pri_key:expr, $message_vec:expr, $variant:expr) => {{
+        let pri_key_ref: &[u8; $module::SK_LEN] = $pri_key.as_ref().try_into()
+            .map_err(|_| "Invalid private key length".to_string())?;
+
+        let signing_key = $module::PrivateKey::try_from_bytes(&pri_key_ref)
+            .map_err(|e| format!("Unable to construct private key: {:?}", e))?;
+        let signature = signing_key
+            .try_sign($message_vec, &[], true)
+            .map_err(|e| format!("Signing error: {:?}", e))?;
+
+        let all_in_one_config: [u8; 4] = [
+            MULTISIG_RESERVED_FIELD_VALUE,
+            REQUIRED_FIRST_N,
+            THRESHOLD,
+            PUBKEY_NUM,
+        ];
+        let param_id_and_sign_flag: u8 = ($variant << 1) | 1;
+
+        // The sphincs+ public key is the second half of the private key
+        // [sk_seed][sk_prf] [pk_seed][pk_root]
+        let pub_key_slice: &[u8] = &pri_key_ref[$module::PK_LEN..$module::SK_LEN];
+        let ckb_qr_full_signature = [
+            &all_in_one_config[..],
+            &[param_id_and_sign_flag],
+            &pub_key_slice[..],
+            signature.as_slice(),
+        ]
+        .concat();
+
+        Ok(ckb_qr_full_signature)
     }};
 }

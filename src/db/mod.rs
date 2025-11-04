@@ -1,39 +1,46 @@
-mod errors;
+pub mod errors;
 
-use super::types::{CipherPayload, SphincsPlusAccount};
-use crate::constants::{CHILD_KEYS_STORE, DB_NAME, MASTER_SEED_KEY, MASTER_SEED_STORE};
-use errors::KeyVaultDBError;
-use indexed_db_futures::{
-    database::Database, prelude::*, transaction::TransactionMode,
-};
+use super::types::{CipherPayload, SphincsPlusAccount, WalletInfo};
+pub use errors::KeyVaultDBError;
+use std::collections::HashMap;
+use std::fs::{self, File};
+use std::io::{Read, Write};
+use std::path::PathBuf;
 
-/// Opens the IndexedDB database, creating object stores if necessary.
+/// Gets the data directory path for the key vault
 ///
 /// **Returns**:
-/// - `Result<Database, KeyVaultDBError>` - The opened database on success, or an error if the operation fails.
-///
-/// **Async**: Yes
-pub async fn open_db() -> Result<Database, KeyVaultDBError> {
-    Database::open(DB_NAME)
-        .with_version(1u8)
-        .with_on_blocked(|_event| Ok(()))
-        .with_on_upgrade_needed(|_event, db| {
-            if !db
-                .object_store_names()
-                .any(|name| name == MASTER_SEED_STORE)
-            {
-                db.create_object_store(MASTER_SEED_STORE).build()?;
-            }
-            if !db.object_store_names().any(|name| name == CHILD_KEYS_STORE) {
-                db.create_object_store(CHILD_KEYS_STORE).build()?;
-            }
-            Ok(())
-        })
-        .await
-        .map_err(|e| KeyVaultDBError::DatabaseError(format!("Failed to open IndexedDB: {}", e)))
+/// - `Result<PathBuf, KeyVaultDBError>` - The data directory path on success, or an error if it cannot be determined.
+fn get_data_dir() -> Result<PathBuf, KeyVaultDBError> {
+    let home_dir = dirs::home_dir()
+        .ok_or_else(|| KeyVaultDBError::DatabaseError("Cannot determine home directory".to_string()))?;
+
+    let data_dir = home_dir.join(".quantum-purse");
+
+    // Create directory if it doesn't exist
+    if !data_dir.exists() {
+        fs::create_dir_all(&data_dir)?;
+    }
+
+    Ok(data_dir)
 }
 
-/// Stores the encrypted master seed in the database.
+/// Gets the path to the master seed file
+fn get_master_seed_path() -> Result<PathBuf, KeyVaultDBError> {
+    Ok(get_data_dir()?.join("master_seed.json"))
+}
+
+/// Gets the path to the accounts file
+fn get_accounts_path() -> Result<PathBuf, KeyVaultDBError> {
+    Ok(get_data_dir()?.join("accounts.json"))
+}
+
+/// Gets the path to the wallet info file
+fn get_wallet_info_path() -> Result<PathBuf, KeyVaultDBError> {
+    Ok(get_data_dir()?.join("wallet_info.json"))
+}
+
+/// Stores the encrypted master seed in the file system.
 ///
 /// **Parameters**:
 /// - `payload: CipherPayload` - The encrypted master seed data to store.
@@ -41,135 +48,170 @@ pub async fn open_db() -> Result<Database, KeyVaultDBError> {
 /// **Returns**:
 /// - `Result<(), KeyVaultDBError>` - Ok on success, or an error if storage fails.
 ///
-/// **Async**: Yes
-///
-/// **Warning**: This method overwrites the existing master seed in the database.
-pub async fn set_encrypted_seed(payload: CipherPayload) -> Result<(), KeyVaultDBError> {
-    let db = open_db().await?;
-    let tx = db
-        .transaction(MASTER_SEED_STORE)
-        .with_mode(TransactionMode::Readwrite)
-        .build()?;
-    let store = tx.object_store(MASTER_SEED_STORE)?;
-
-    let js_value = serde_wasm_bindgen::to_value(&payload)?;
-    store.put(&js_value).with_key(MASTER_SEED_KEY).await?;
-    tx.commit().await?;
+/// **Warning**: This method overwrites the existing master seed.
+pub fn set_encrypted_seed(payload: CipherPayload) -> Result<(), KeyVaultDBError> {
+    let path = get_master_seed_path()?;
+    let json = serde_json::to_string_pretty(&payload)?;
+    let mut file = File::create(path)?;
+    file.write_all(json.as_bytes())?;
     Ok(())
 }
 
-/// Retrieves the encrypted masterseed from the database.
+/// Retrieves the encrypted master seed from the file system.
 ///
 /// **Returns**:
 /// - `Result<Option<CipherPayload>, KeyVaultDBError>` - The encrypted master seed if it exists, `None` if not found, or an error if retrieval fails.
-///
-/// **Async**: Yes
-pub async fn get_encrypted_seed() -> Result<Option<CipherPayload>, KeyVaultDBError> {
-    let db = open_db().await?;
-    let tx = db
-        .transaction(MASTER_SEED_STORE)
-        .with_mode(TransactionMode::Readonly)
-        .build()?;
-    let store = tx.object_store(MASTER_SEED_STORE)?;
+pub fn get_encrypted_seed() -> Result<Option<CipherPayload>, KeyVaultDBError> {
+    let path = get_master_seed_path()?;
 
-    if let Some(js_value) = store
-        .get(MASTER_SEED_KEY)
-        .await
-        .map_err(|e| KeyVaultDBError::DatabaseError(e.to_string()))?
-    {
-        let payload: CipherPayload = serde_wasm_bindgen::from_value(js_value)?;
-        Ok(Some(payload))
-    } else {
-        Ok(None)
+    if !path.exists() {
+        return Ok(None);
     }
+
+    let mut file = File::open(path)?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+    let payload: CipherPayload = serde_json::from_str(&contents)?;
+    Ok(Some(payload))
 }
 
-/// Stores a SPHINCS+ account to the database.
+/// Helper function to load all accounts from file
+fn load_accounts() -> Result<HashMap<String, SphincsPlusAccount>, KeyVaultDBError> {
+    let path = get_accounts_path()?;
+
+    if !path.exists() {
+        return Ok(HashMap::new());
+    }
+
+    let mut file = File::open(path)?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+    let accounts: HashMap<String, SphincsPlusAccount> = serde_json::from_str(&contents)?;
+    Ok(accounts)
+}
+
+/// Helper function to save all accounts to file
+fn save_accounts(accounts: &HashMap<String, SphincsPlusAccount>) -> Result<(), KeyVaultDBError> {
+    let path = get_accounts_path()?;
+    let json = serde_json::to_string_pretty(accounts)?;
+    let mut file = File::create(path)?;
+    file.write_all(json.as_bytes())?;
+    Ok(())
+}
+
+/// Stores a SPHINCS+ account to the file system.
 ///
 /// **Parameters**:
 /// - `account: SphincsPlusAccount` - The SPHINCS+ account to store.
 ///
 /// **Returns**:
 /// - `Result<(), KeyVaultDBError>` - Ok on success, or an error if storage fails.
-///
-/// **Async**: Yes
-pub async fn add_account(mut account: SphincsPlusAccount) -> Result<(), KeyVaultDBError> {
-    let db = open_db().await?;
-    let tx = db
-        .transaction(CHILD_KEYS_STORE)
-        .with_mode(TransactionMode::Readwrite)
-        .build()?;
-    let store = tx.object_store(CHILD_KEYS_STORE)?;
-    let count = store.count().await?;
+pub fn add_account(mut account: SphincsPlusAccount) -> Result<(), KeyVaultDBError> {
+    let mut accounts = load_accounts()?;
+    let count = accounts.len();
     account.index = count as u32;
-    let js_value = serde_wasm_bindgen::to_value(&account)?;
-
-    store.add(js_value).with_key(account.lock_args).await?;
-    tx.commit().await?;
+    accounts.insert(account.lock_args.clone(), account);
+    save_accounts(&accounts)?;
     Ok(())
 }
 
-/// Retrieves a child account by its public key from the database.
+/// Retrieves a child account by its lock args from the file system.
 ///
 /// **Parameters**:
 /// - `lock_args: &str` - The hex-encoded lock script's arguments corresponding to the SPHINCS+ public key of the retrieved child account.
 ///
 /// **Returns**:
 /// - `Result<Option<SphincsPlusAccount>, KeyVaultDBError>` - The child key if found, `None` if not found, or an error if retrieval fails.
-///
-/// **Async**: Yes
-pub async fn get_account(lock_args: &str) -> Result<Option<SphincsPlusAccount>, KeyVaultDBError> {
-    let db = open_db().await?;
-    let tx = db
-        .transaction(CHILD_KEYS_STORE)
-        .with_mode(TransactionMode::Readonly)
-        .build()?;
-    let store = tx.object_store(CHILD_KEYS_STORE)?;
-
-    if let Some(js_value) = store
-        .get(lock_args)
-        .await
-        .map_err(|e| KeyVaultDBError::DatabaseError(e.to_string()))?
-    {
-        let account: SphincsPlusAccount = serde_wasm_bindgen::from_value(js_value)?;
-        Ok(Some(account))
-    } else {
-        Ok(None)
-    }
+pub fn get_account(lock_args: &str) -> Result<Option<SphincsPlusAccount>, KeyVaultDBError> {
+    let accounts = load_accounts()?;
+    Ok(accounts.get(lock_args).cloned())
 }
 
-/// Clears a specific object store in the database.
-///
-/// **Parameters**:
-/// - `db: &Database` - The database instance to operate on.
-/// - `store_name: &str` - The name of the object store to clear.
+/// Clears the master seed file.
 ///
 /// **Returns**:
 /// - `Result<(), KeyVaultDBError>` - Ok on success, or an error if the operation fails.
+pub fn clear_master_seed() -> Result<(), KeyVaultDBError> {
+    let path = get_master_seed_path()?;
+    if path.exists() {
+        fs::remove_file(path)?;
+    }
+    Ok(())
+}
+
+/// Clears the accounts file.
 ///
-/// **Async**: Yes
-pub async fn clear_object_store(db: &Database, store_name: &str) -> Result<(), KeyVaultDBError> {
-    let tx = db
-        .transaction(store_name)
-        .with_mode(TransactionMode::Readwrite)
-        .build()
-        .map_err(|e| {
-            KeyVaultDBError::DatabaseError(format!(
-                "Error starting transaction for {}: {}",
-                store_name, e
-            ))
-        })?;
-    let store = tx.object_store(store_name).map_err(|e| {
-        KeyVaultDBError::DatabaseError(format!("Error getting object store {}: {}", store_name, e))
-    })?;
-    store.clear().map_err(|e| {
-        KeyVaultDBError::DatabaseError(format!("Error clearing object store {}: {}", store_name, e))
-    })?;
-    tx.commit().await.map_err(|e| {
-        KeyVaultDBError::DatabaseError(format!(
-            "Error committing transaction for {}: {}",
-            store_name, e
-        ))
-    })?;
+/// **Returns**:
+/// - `Result<(), KeyVaultDBError>` - Ok on success, or an error if the operation fails.
+pub fn clear_accounts() -> Result<(), KeyVaultDBError> {
+    let path = get_accounts_path()?;
+    if path.exists() {
+        fs::remove_file(path)?;
+    }
+    Ok(())
+}
+
+/// Gets all accounts sorted by index.
+///
+/// **Returns**:
+/// - `Result<Vec<SphincsPlusAccount>, KeyVaultDBError>` - All accounts sorted by index on success.
+pub fn get_all_accounts() -> Result<Vec<SphincsPlusAccount>, KeyVaultDBError> {
+    let accounts = load_accounts()?;
+    let mut account_list: Vec<SphincsPlusAccount> = accounts.into_values().collect();
+    account_list.sort_by_key(|a| a.index);
+    Ok(account_list)
+}
+
+/// Gets the count of stored accounts.
+///
+/// **Returns**:
+/// - `Result<usize, KeyVaultDBError>` - The count of accounts.
+pub fn get_account_count() -> Result<usize, KeyVaultDBError> {
+    let accounts = load_accounts()?;
+    Ok(accounts.len())
+}
+
+/// Stores wallet info in the file system.
+///
+/// **Parameters**:
+/// - `info: WalletInfo` - The wallet info to store.
+///
+/// **Returns**:
+/// - `Result<(), KeyVaultDBError>` - Ok on success, or an error if storage fails.
+pub fn set_wallet_info(info: WalletInfo) -> Result<(), KeyVaultDBError> {
+    let path = get_wallet_info_path()?;
+    let json = serde_json::to_string_pretty(&info)?;
+    let mut file = File::create(path)?;
+    file.write_all(json.as_bytes())?;
+    Ok(())
+}
+
+/// Retrieves wallet info from the file system.
+///
+/// **Returns**:
+/// - `Result<Option<WalletInfo>, KeyVaultDBError>` - The wallet info if it exists, `None` if not found, or an error if retrieval fails.
+pub fn get_wallet_info() -> Result<Option<WalletInfo>, KeyVaultDBError> {
+    let path = get_wallet_info_path()?;
+
+    if !path.exists() {
+        return Ok(None);
+    }
+
+    let mut file = File::open(path)?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+    let info: WalletInfo = serde_json::from_str(&contents)?;
+    Ok(Some(info))
+}
+
+/// Clears the wallet info file.
+///
+/// **Returns**:
+/// - `Result<(), KeyVaultDBError>` - Ok on success, or an error if the operation fails.
+pub fn clear_wallet_info() -> Result<(), KeyVaultDBError> {
+    let path = get_wallet_info_path()?;
+    if path.exists() {
+        fs::remove_file(path)?;
+    }
     Ok(())
 }

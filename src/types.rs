@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops::{Shl, Shr};
-use wasm_bindgen::prelude::*;
 
 /// Scrypt param structure.
 pub struct ScryptParam {
@@ -37,8 +36,16 @@ pub struct SphincsPlusAccount {
     pub pri_enc: CipherPayload,
 }
 
+/// Represents wallet metadata information.
+///
+/// **Fields**:
+/// - `variant: SpxVariant` - The SPHINCS+ variant used for this wallet.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct WalletInfo {
+    pub variant: SpxVariant,
+}
+
 /// ID of all 12 SPHINCS+ variants following https://github.com/cryptape/quantum-resistant-lock-script/pull/14
-#[wasm_bindgen]
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum SpxVariant {
     Sha2128F = 48,

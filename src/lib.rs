@@ -1,10 +1,10 @@
 //! # QuantumPurse KeyVault
 //!
 //! This module provides a secure password-based authentication interface for managing cryptographic keys in
-//! QuantumPurse project using WebAssembly. It leverages AES-GCM for encryption, Scrypt for key derivation & hashing,
+//! QuantumPurse project. It leverages AES-GCM for encryption, Scrypt for key derivation & hashing,
 //! and the SPHINCS+ signature scheme for post-quantum transaction signing. Sensitive data, including
-//! root seed and derived SPHINCS+ private keys, is encrypted and stored in the browser via
-//! IndexedDB, with access authenticated by user-provided passwords.
+//! root seed and derived SPHINCS+ private keys, is encrypted and stored locally in files,
+//! with access authenticated by user-provided passwords.
 
 use bip39::{Language, Mnemonic};
 use ckb_fips205_utils::{
@@ -17,23 +17,17 @@ use fips205::{
     *,
 };
 use hex::encode;
-use indexed_db_futures::{
-    error::Error as DBError, iter::ArrayMapIter, prelude::*, transaction::TransactionMode,
-};
-use serde_wasm_bindgen;
-use wasm_bindgen::{prelude::*, JsValue};
-use web_sys::js_sys::Uint8Array;
 
 mod constants;
-mod db;
+pub mod db;
 mod macros;
 mod secure_vec;
 mod secure_string;
-mod types;
-mod utilities;
+pub mod types;
+pub mod utilities;
 
 use crate::constants::{
-    CHILD_KEYS_STORE, KDF_PATH_PREFIX, MASTER_SEED_STORE, MULTISIG_RESERVED_FIELD_VALUE,
+    KDF_PATH_PREFIX, MULTISIG_RESERVED_FIELD_VALUE,
     PUBKEY_NUM, REQUIRED_FIRST_N, THRESHOLD,
 };
 use secure_vec::SecureVec;
@@ -43,21 +37,18 @@ use types::*;
 ////////////////////////////////////////////////////////////////////////////////
 ///  Key-vault functions
 ////////////////////////////////////////////////////////////////////////////////
-#[wasm_bindgen]
 pub struct KeyVault {
     /// The one parameter set chosen for QuantumPurse KeyVault setup in all 12 NIST-approved SPHINCS+ FIPS205 variants
     pub variant: SpxVariant,
 }
 
-#[wasm_bindgen]
 impl KeyVault {
-    /// Constructs a new `KeyVault` to serve as a namespace in the output js interface.
+    /// Constructs a new `KeyVault`.
     ///
     /// **Returns**:
     /// - `KeyVault` - A new instance of the struct.
-    #[wasm_bindgen(constructor)]
     pub fn new(variant: SpxVariant) -> Self {
-        KeyVault { variant: variant }
+        KeyVault { variant }
     }
 
     /// To derive SPHINCS+ key pair. One master seed can derive multiple child index-based SPHINCS+ key pairs on demand.
@@ -67,7 +58,7 @@ impl KeyVault {
     /// - `index: u32` - The index of the child sphincs+ key to be derived.
     ///
     /// **Returns**:
-    /// - `Result<SecureVec, SecureVec>` - The SPHINCS+ key pair on success, or an error message on failure.
+    /// - `Result<(SecureVec, SecureVec), String>` - The SPHINCS+ key pair on success, or an error message on failure.
     ///
     /// Warning: Proper zeroization of the input seed is the responsibility of the caller.
     fn derive_spx_keys(
@@ -91,153 +82,116 @@ impl KeyVault {
         }
     }
 
-    /// Clears all data in the `seed_phrase_store` and `child_keys_store` in IndexedDB.
+    /// Clears all data in the vault.
     ///
     /// **Returns**:
-    /// - `Result<(), JsValue>` - A JavaScript Promise that resolves to `undefined` on success,
-    ///   or rejects with a JavaScript error on failure.
-    ///
-    /// **Async**: Yes
-    #[wasm_bindgen]
-    pub async fn clear_database() -> Result<(), JsValue> {
-        let db = db::open_db().await.map_err(|e| e.to_jsvalue())?;
-        db::clear_object_store(&db, MASTER_SEED_STORE)
-            .await
-            .map_err(|e| e.to_jsvalue())?;
-        db::clear_object_store(&db, CHILD_KEYS_STORE)
-            .await
-            .map_err(|e| e.to_jsvalue())?;
+    /// - `Result<(), String>` - Ok on success, or an error message on failure.
+    pub fn clear_database() -> Result<(), String> {
+        db::clear_master_seed().map_err(|e| e.to_string())?;
+        db::clear_accounts().map_err(|e| e.to_string())?;
+        db::clear_wallet_info().map_err(|e| e.to_string())?;
         Ok(())
+    }
+
+    /// Retrieves the stored wallet variant.
+    ///
+    /// **Returns**:
+    /// - `Result<SpxVariant, String>` - The stored variant on success, or an error if not found.
+    pub fn get_stored_variant() -> Result<SpxVariant, String> {
+        let wallet_info = db::get_wallet_info()
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "Wallet not initialized. Run 'init' or 'import' first.".to_string())?;
+        Ok(wallet_info.variant)
     }
 
     /// Retrieves all SPHINCS+ lock script arguments (processed public keys) from the database in the order they get inserted.
     ///
     /// **Returns**:
-    /// - `Result<Vec<String>, JsValue>` - A JavaScript Promise that resolves to an array of hex-encoded SPHINCS+ lock script arguments on success,
-    ///   or rejects with a JavaScript error on failure.
-    ///
-    /// **Async**: Yes
-    #[wasm_bindgen]
-    pub async fn get_all_sphincs_lock_args() -> Result<Vec<String>, JsValue> {
-        /// Error conversion helper
-        fn map_db_error<T>(result: Result<T, DBError>) -> Result<T, JsValue> {
-            result.map_err(|e| JsValue::from_str(&format!("Database error: {}", e)))
-        }
-
-        let db = db::open_db().await.map_err(|e| e.to_jsvalue())?;
-        let tx = map_db_error(
-            db.transaction(CHILD_KEYS_STORE)
-                .with_mode(TransactionMode::Readonly)
-                .build(),
-        )?;
-        let store = map_db_error(tx.object_store(CHILD_KEYS_STORE))?;
-
-        // Retrieve all accounts
-        let iter: ArrayMapIter<JsValue> = map_db_error(store.get_all().await)?;
-        let mut accounts: Vec<SphincsPlusAccount> = Vec::new();
-        for result in iter {
-            let js_value = map_db_error(result)?;
-            let account: SphincsPlusAccount = serde_wasm_bindgen::from_value(js_value)?;
-            accounts.push(account);
-        }
-
-        // Sort by index
-        accounts.sort_by_key(|account| account.index);
-
-        // Extract lock args in sorted order
+    /// - `Result<Vec<String>, String>` - An array of hex-encoded SPHINCS+ lock script arguments on success, or an error on failure.
+    pub fn get_all_sphincs_lock_args() -> Result<Vec<String>, String> {
+        let accounts = db::get_all_accounts().map_err(|e| e.to_string())?;
         let lock_args_array: Vec<String> = accounts
             .into_iter()
             .map(|account| account.lock_args)
             .collect();
-
         Ok(lock_args_array)
     }
 
-    /// Check if there's a master seed stored in the indexDB.
+    /// Check if there's a master seed stored.
     ///
     /// **Returns**:
-    /// - `Result<bool, JsValue>` - A JavaScript Promise that resolves to `true` if a master seed exists,
-    ///   or `false` if it doesn't.
-    ///
-    /// **Async**: Yes
-    #[wasm_bindgen]
-    pub async fn has_master_seed(&self) -> Result<bool, JsValue> {
-        let payload = db::get_encrypted_seed().await.map_err(|e| e.to_jsvalue())?;
+    /// - `Result<bool, String>` - `true` if a master seed exists, or `false` if it doesn't.
+    pub fn has_master_seed(&self) -> Result<bool, String> {
+        let payload = db::get_encrypted_seed().map_err(|e| e.to_string())?;
         Ok(payload.is_some())
     }
 
-    /// Generates master seed for your wallet, encrypts it with the provided password, and stores it in IndexedDB.
-    /// Throw if the master seed already exists.
+    /// Generates master seed for your wallet, encrypts it with the provided password, and stores it.
+    /// Errors if the master seed already exists.
     ///
     /// **Parameters**:
-    /// - `js_password: Uint8Array` - The password used to encrypt the generated master seed, input from js env.
+    /// - `password: Vec<u8>` - The password used to encrypt the generated master seed.
     ///
     /// **Returns**:
-    /// - `Result<(), JsValue>` - A JavaScript Promise that resolves to `undefined` on success,
-    ///   or rejects with a JavaScript error on failure.
+    /// - `Result<(), String>` - Ok on success, or an error on failure.
     ///
-    /// **Async**: Yes
-    /// 
     /// **Notes**:
-    /// - The provided `js_password` buffer is cleared immediately after use.
-    #[wasm_bindgen]
-    pub async fn generate_master_seed(&self, js_password: Uint8Array) -> Result<(), JsValue> {
-        let password = SecureVec::from_slice(&js_password.to_vec());
-        js_password.fill(0, 0, js_password.length());
+    /// - The provided `password` buffer is cleared immediately after use.
+    pub fn generate_master_seed(&self, password: Vec<u8>) -> Result<(), String> {
+        let password = SecureVec::from_slice(&password);
 
         if password.is_empty() || password.is_uninitialized() {
-            return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
+            return Err("Password cannot be empty or uninitialized".to_string());
         }
 
-        if self.has_master_seed().await? {
-            return Err(JsValue::from_str("Master seed already exists"));
+        if self.has_master_seed()? {
+            return Err("Master seed already exists".to_string());
         }
 
         let size = self.variant.required_entropy_size_total();
         let entropy = utilities::get_random_bytes(size)
-            .map_err(|e| JsValue::from_str(&format!("Failed generating master seed: {}", e)))?;
+            .map_err(|e| format!("Failed generating master seed: {}", e))?;
         let encrypted_seed = utilities::encrypt(&password, entropy.as_ref())
-            .map_err(|e| JsValue::from_str(&format!("Encryption error: {}", e)))?;
+            .map_err(|e| format!("Encryption error: {}", e))?;
 
-        db::set_encrypted_seed(encrypted_seed)
-            .await
-            .map_err(|e| e.to_jsvalue())?;
+        db::set_encrypted_seed(encrypted_seed).map_err(|e| e.to_string())?;
+
+        // Store wallet info with variant
+        let wallet_info = types::WalletInfo {
+            variant: self.variant,
+        };
+        db::set_wallet_info(wallet_info).map_err(|e| e.to_string())?;
+
         Ok(())
     }
 
-    /// Generates a new SPHINCS+ account - a SPHINCS+ child account derived from the master seed, encrypts the private key with the password, and stores it in IndexedDB.
+    /// Generates a new SPHINCS+ account - a SPHINCS+ child account derived from the master seed, encrypts the private key with the password, and stores it.
     ///
     /// **Parameters**:
-    /// - `js_password: Uint8Array` - The password used to decrypt the master seed and encrypt the child private key, input from js env.
+    /// - `password: Vec<u8>` - The password used to decrypt the master seed and encrypt the child private key.
     ///
     /// **Returns**:
-    /// - `Result<String, JsValue>` - A String Promise that resolves to the hex-encoded SPHINCS+ lock argument (processed SPHINCS+ public key) of the account on success,
-    ///   or rejects with a JavaScript error on failure.
+    /// - `Result<String, String>` - The hex-encoded SPHINCS+ lock argument (processed SPHINCS+ public key) of the account on success, or an error on failure.
     ///
-    /// **Async**: Yes
-    /// 
     /// **Notes**:
-    /// - The provided `js_password` buffer is cleared immediately after use.
-    #[wasm_bindgen]
-    pub async fn gen_new_account(&self, js_password: Uint8Array) -> Result<String, JsValue> {
-        let password = SecureVec::from_slice(&js_password.to_vec());
-        js_password.fill(0, 0, js_password.length());
+    /// - The provided `password` buffer is cleared immediately after use.
+    pub fn gen_new_account(&self, password: Vec<u8>) -> Result<String, String> {
+        let password = SecureVec::from_slice(&password);
 
         if password.is_empty() || password.is_uninitialized() {
-            return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
+            return Err("Password cannot be empty or uninitialized".to_string());
         }
 
         // Get and decrypt the master seed
         let payload = db::get_encrypted_seed()
-            .await
-            .map_err(|e| e.to_jsvalue())?
-            .ok_or_else(|| JsValue::from_str("Master seed not found"))?;
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "Master seed not found".to_string())?;
         let seed = utilities::decrypt(&password, payload)?;
 
-        let index = Self::get_all_sphincs_lock_args().await?.len() as u32;
+        let index = Self::get_all_sphincs_lock_args()?.len() as u32;
         let (pub_key, pri_key) = self
             .derive_spx_keys(&seed, index)
-            .map_err(|e| JsValue::from_str(&format!("Key derivation error: {}", e)))?;
+            .map_err(|e| format!("Key derivation error: {}", e))?;
 
         // Calculate lock script args and encrypt corresponding private key
         let lock_script_args = self.get_lock_scrip_arg(&pub_key);
@@ -250,58 +204,51 @@ impl KeyVault {
             pri_enc: encrypted_pri,
         };
 
-        db::add_account(account).await.map_err(|e| e.to_jsvalue())?;
+        db::add_account(account).map_err(|e| e.to_string())?;
 
         Ok(encode(lock_script_args))
     }
 
     /// Imports master seed then encrypting it with the provided password.
-    /// Overwrite the existing master seed.
+    /// Overwrites the existing master seed.
     ///
     /// **Parameters**:
-    /// - `js_seed_phrase: Uint8Array` - The mnemonic phrase as a valid UTF-8 encoded Uint8Array to import, input from js env.
+    /// - `seed_phrase: Vec<u8>` - The mnemonic phrase as a valid UTF-8 encoded byte array to import.
     ///    There're only 3 options accepted: 36, 54 or 72 words.
-    /// - `js_password: Uint8Array` - The password used to encrypt the translated master seed, input from js env.
+    /// - `password: Vec<u8>` - The password used to encrypt the translated master seed.
     ///
     /// **Returns**:
-    /// - `Result<(), JsValue>` - A JavaScript Promise that resolves to `undefined` on success,
-    ///   or rejects with a JavaScript error on failure.
-    ///
-    /// **Async**: Yes
+    /// - `Result<(), String>` - Ok on success, or an error on failure.
     ///
     /// **Notes**:
-    /// - The provided `js_password` and the js_seed_phrase buffers are cleared immediately after use.
-    #[wasm_bindgen]
-    pub async fn import_seed_phrase(
+    /// - The provided `password` and `seed_phrase` buffers are cleared immediately after use.
+    pub fn import_seed_phrase(
         &self,
-        js_seed_phrase: Uint8Array,
-        js_password: Uint8Array,
-    ) -> Result<(), JsValue> {
-        let password = SecureVec::from_slice(&js_password.to_vec());
-        js_password.fill(0, 0, js_password.length());
-
-        let seed_phrase_str = SecureString::from_utf8(js_seed_phrase.to_vec())
-            .map_err(|e| JsValue::from_str(&format!("Invalid UTF-8: {}", e)))?;
-        js_seed_phrase.fill(0, 0, js_seed_phrase.length());
+        seed_phrase: Vec<u8>,
+        password: Vec<u8>,
+    ) -> Result<(), String> {
+        let password = SecureVec::from_slice(&password);
+        let seed_phrase_str = SecureString::from_utf8(seed_phrase)
+            .map_err(|e| format!("Invalid UTF-8: {}", e))?;
 
         if password.is_empty() || password.is_uninitialized() {
-            return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
+            return Err("Password cannot be empty or uninitialized".to_string());
         }
 
         if seed_phrase_str.is_empty() || seed_phrase_str.is_uninitialized() {
-            return Err(JsValue::from_str("Seed phrase cannot be empty or uninitialized"));
+            return Err("Seed phrase cannot be empty or uninitialized".to_string());
         }
 
         let words: Vec<&str> = seed_phrase_str.split_whitespace().collect();
         let word_count = words.len();
 
         if word_count != self.variant.required_bip39_size_in_word_total() {
-            return Err(JsValue::from_str(&format!(
+            return Err(format!(
                 "Mismatch: The chosen SPHINCS+ parameter set {} requires {} words whereas the input mnemonic has {} words.",
                 self.variant,
                 self.variant.required_bip39_size_in_word_total(),
                 word_count
-            )));
+            ));
         }
 
         let mut combined_entropy = SecureVec::new_with_length(0);
@@ -311,159 +258,143 @@ impl KeyVault {
             index += 1;
             let chunk_str = SecureString::from_string(chunk.join(" "));
             let mnemonic = Mnemonic::parse_in(Language::English, &*chunk_str).map_err(|e| {
-                JsValue::from_str(&format!(
+                format!(
                     "Invalid mnemonic: Chunk{} index {}: {}",
                     size, index, e
-                ))
+                )
             })?;
             combined_entropy.extend(&mnemonic.to_entropy());
         }
 
         let payload = utilities::encrypt(&password, &combined_entropy)?;
-        db::set_encrypted_seed(payload)
-            .await
-            .map_err(|e| e.to_jsvalue())?;
+        db::set_encrypted_seed(payload).map_err(|e| e.to_string())?;
+
+        // Store wallet info with variant
+        let wallet_info = types::WalletInfo {
+            variant: self.variant,
+        };
+        db::set_wallet_info(wallet_info).map_err(|e| e.to_string())?;
+
         Ok(())
     }
 
     /// Exports the master seed in the form of a custom bip39 mnemonic phrase. There're only 3 options: 36, 54 or 72 words.
     ///
     /// **Parameters**:
-    /// - `js_password: Uint8Array` - The password used to decrypt the master seed, input from js env.
+    /// - `password: Vec<u8>` - The password used to decrypt the master seed.
     ///
     /// **Returns**:
-    /// - `Result<Uint8Array, JsValue>` - A JavaScript Promise that resolves to the mnemonic as a UTF-8 encoded `Uint8Array` on success,
-    ///   or rejects with a JavaScript error on failure.
+    /// - `Result<Vec<u8>, String>` - The mnemonic as a UTF-8 encoded byte array on success, or an error on failure.
     ///
-    /// **Async**: Yes
+    /// **Warning**: Exporting the mnemonic exposes it and may pose a security risk.
     ///
-    /// **Warning**: Exporting the mnemonic exposes it in JavaScript may pose a security risk.
-    /// 
-    /// **Async**: Yes
-    /// 
     /// **Notes**:
-    /// - The provided `js_password` buffer is cleared immediately after use.
-    #[wasm_bindgen]
-    pub async fn export_seed_phrase(&self, js_password: Uint8Array) -> Result<Uint8Array, JsValue> {
-        let password = SecureVec::from_slice(&js_password.to_vec());
-        js_password.fill(0, 0, js_password.length());
+    /// - The provided `password` buffer is cleared immediately after use.
+    pub fn export_seed_phrase(&self, password: Vec<u8>) -> Result<Vec<u8>, String> {
+        let password = SecureVec::from_slice(&password);
 
         if password.is_empty() || password.is_uninitialized() {
-            return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
+            return Err("Password cannot be empty or uninitialized".to_string());
         }
 
         let payload = db::get_encrypted_seed()
-            .await
-            .map_err(|e| e.to_jsvalue())?
-            .ok_or_else(|| JsValue::from_str("Master seed not found"))?;
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "Master seed not found".to_string())?;
 
         let entropy = utilities::decrypt(&password, payload)?;
         let size = self.variant.required_entropy_size_component();
         let chunks = entropy.chunks(size);
 
-        let mut combined_mnemonic  = SecureString::new();
+        let mut combined_mnemonic = SecureString::new();
         for chunk in chunks {
             let mnemonic = Mnemonic::from_entropy_in(Language::English, chunk)
-                .map_err(|e| JsValue::from_str(&format!("Export seed error: {}", e)))?;
+                .map_err(|e| format!("Export seed error: {}", e))?;
             combined_mnemonic.extend(&mnemonic.to_string());
         }
-        Ok(Uint8Array::from(combined_mnemonic.as_ref()))
+        let result: &[u8] = combined_mnemonic.as_ref();
+        Ok(result.to_vec())
     }
 
     /// Sign and produce a valid signature for the Quantum Resistant lock script.
     ///
     /// **Parameters**:
-    /// - `js_password: Uint8Array` - The password used to decrypt the private key, input from js env.
+    /// - `password: Vec<u8>` - The password used to decrypt the private key.
     /// - `lock_args: String` - The hex-encoded lock script's arguments corresponding to the SPHINCS+ public key of the account that signs.
-    ///    This is a CKB specific thing, check https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0022-transaction-structure/script-p2.png for more information.
-    /// - `message: Uint8Array` - The message to be signed.
+    /// - `message: Vec<u8>` - The message to be signed.
     ///
     /// **Returns**:
-    /// - `Result<Uint8Array, JsValue>` - The signature as a `Uint8Array` on success,
-    ///   or a JavaScript error on failure.
+    /// - `Result<Vec<u8>, String>` - The signature on success, or an error on failure.
     ///
-    /// **Async**: Yes
-    /// 
     /// **Notes**:
-    /// - The provided `js_password` buffer is cleared immediately after use.
-    #[wasm_bindgen]
-    pub async fn sign(
+    /// - The provided `password` buffer is cleared immediately after use.
+    pub fn sign(
         &self,
-        js_password: Uint8Array,
+        password: Vec<u8>,
         lock_args: String,
-        message: Uint8Array,
-    ) -> Result<Uint8Array, JsValue> {
-        let password = SecureVec::from_slice(&js_password.to_vec());
-        js_password.fill(0, 0, js_password.length());
+        message: Vec<u8>,
+    ) -> Result<Vec<u8>, String> {
+        let password = SecureVec::from_slice(&password);
 
         if password.is_empty() || password.is_uninitialized() {
-            return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
+            return Err("Password cannot be empty or uninitialized".to_string());
         }
 
         let account = db::get_account(&lock_args)
-            .await
-            .map_err(|e| e.to_jsvalue())?
-            .ok_or_else(|| JsValue::from_str("Account not found"))?;
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "Account not found".to_string())?;
 
         let pri_key = utilities::decrypt(&password, account.pri_enc)?;
-        let message_vec = message.to_vec();
 
         match self.variant {
-            SpxVariant::Sha2128S => spx_sign!(slh_dsa_sha2_128s, pri_key, &message_vec, self.variant),
-            SpxVariant::Sha2128F => spx_sign!(slh_dsa_sha2_128f, pri_key, &message_vec, self.variant),
-            SpxVariant::Shake128S => spx_sign!(slh_dsa_shake_128s, pri_key, &message_vec, self.variant),
-            SpxVariant::Shake128F => spx_sign!(slh_dsa_shake_128f, pri_key, &message_vec, self.variant),
-            SpxVariant::Sha2192S => spx_sign!(slh_dsa_sha2_192s, pri_key, &message_vec, self.variant),
-            SpxVariant::Sha2192F => spx_sign!(slh_dsa_sha2_192f, pri_key, &message_vec, self.variant),
-            SpxVariant::Shake192S => spx_sign!(slh_dsa_shake_192s, pri_key, &message_vec, self.variant),
-            SpxVariant::Shake192F => spx_sign!(slh_dsa_shake_192f, pri_key, &message_vec, self.variant),
-            SpxVariant::Sha2256S => spx_sign!(slh_dsa_sha2_256s, pri_key, &message_vec, self.variant),
-            SpxVariant::Sha2256F => spx_sign!(slh_dsa_sha2_256f, pri_key, &message_vec, self.variant),
-            SpxVariant::Shake256S => spx_sign!(slh_dsa_shake_256s, pri_key, &message_vec, self.variant),
-            SpxVariant::Shake256F => spx_sign!(slh_dsa_shake_256f, pri_key, &message_vec, self.variant),
+            SpxVariant::Sha2128S => spx_sign_native!(slh_dsa_sha2_128s, pri_key, &message, self.variant),
+            SpxVariant::Sha2128F => spx_sign_native!(slh_dsa_sha2_128f, pri_key, &message, self.variant),
+            SpxVariant::Shake128S => spx_sign_native!(slh_dsa_shake_128s, pri_key, &message, self.variant),
+            SpxVariant::Shake128F => spx_sign_native!(slh_dsa_shake_128f, pri_key, &message, self.variant),
+            SpxVariant::Sha2192S => spx_sign_native!(slh_dsa_sha2_192s, pri_key, &message, self.variant),
+            SpxVariant::Sha2192F => spx_sign_native!(slh_dsa_sha2_192f, pri_key, &message, self.variant),
+            SpxVariant::Shake192S => spx_sign_native!(slh_dsa_shake_192s, pri_key, &message, self.variant),
+            SpxVariant::Shake192F => spx_sign_native!(slh_dsa_shake_192f, pri_key, &message, self.variant),
+            SpxVariant::Sha2256S => spx_sign_native!(slh_dsa_sha2_256s, pri_key, &message, self.variant),
+            SpxVariant::Sha2256F => spx_sign_native!(slh_dsa_sha2_256f, pri_key, &message, self.variant),
+            SpxVariant::Shake256S => spx_sign_native!(slh_dsa_shake_256s, pri_key, &message, self.variant),
+            SpxVariant::Shake256F => spx_sign_native!(slh_dsa_shake_256f, pri_key, &message, self.variant),
         }
     }
 
     /// Supporting wallet recovery - quickly derives a list of lock script arguments (processed public keys).
     ///
     /// **Parameters**:
-    /// - `js_password: Uint8Array` - The password used to decrypt the master seed used for account generation, input from js env.
+    /// - `password: Vec<u8>` - The password used to decrypt the master seed used for account generation.
     /// - `start_index: u32` - The starting index for derivation.
     /// - `count: u32` - The number of sequential lock scripts arguments to derive.
     ///
     /// **Returns**:
-    /// - `Result<Vec<String>, JsValue>` - A list of lock script arguments on success,
-    ///   or a JavaScript error on failure.
-    /// 
-    /// **Async**: Yes
-    /// 
+    /// - `Result<Vec<String>, String>` - A list of lock script arguments on success, or an error on failure.
+    ///
     /// **Notes**:
-    /// - The provided `js_password` buffer is cleared immediately after use.
-    #[wasm_bindgen]
-    pub async fn try_gen_account_batch(
+    /// - The provided `password` buffer is cleared immediately after use.
+    pub fn try_gen_account_batch(
         &self,
-        js_password: Uint8Array,
+        password: Vec<u8>,
         start_index: u32,
         count: u32,
-    ) -> Result<Vec<String>, JsValue> {
-        let password = SecureVec::from_slice(&js_password.to_vec());
-        js_password.fill(0, 0, js_password.length());
+    ) -> Result<Vec<String>, String> {
+        let password = SecureVec::from_slice(&password);
 
         if password.is_empty() || password.is_uninitialized() {
-            return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
+            return Err("Password cannot be empty or uninitialized".to_string());
         }
 
         // Get and decrypt the master seed
         let payload = db::get_encrypted_seed()
-            .await
-            .map_err(|e| e.to_jsvalue())?
-            .ok_or_else(|| JsValue::from_str("Master seed not found"))?;
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "Master seed not found".to_string())?;
         let seed = utilities::decrypt(&password, payload)?;
         let mut lock_args_array: Vec<String> = Vec::new();
         for index in start_index..(start_index + count) {
             let (pub_key, _) = self
                 .derive_spx_keys(&seed, index)
-                .map_err(|e| JsValue::from_str(&format!("Key derivation error: {}", e)))?;
+                .map_err(|e| format!("Key derivation error: {}", e))?;
 
             // Calculate lock script args
             let lock_script_args = self.get_lock_scrip_arg(&pub_key);
@@ -475,40 +406,35 @@ impl KeyVault {
     /// Supporting wallet recovery - Recovers the wallet by deriving and storing private keys for the first N accounts.
     ///
     /// **Parameters**:
-    /// - `js_password: Uint8Array` - The password used to decrypt the master seed, input from js env.
+    /// - `password: Vec<u8>` - The password used to decrypt the master seed.
     /// - `count: u32` - The number of accounts to recover (from index 0 to count-1).
     ///
     /// **Returns**:
-    /// - `Result<(), JsValue>` - A list of newly generated sphincs+ lock script arguments (processed public keys) on success, or a JavaScript error on failure.
+    /// - `Result<Vec<String>, String>` - A list of newly generated sphincs+ lock script arguments (processed public keys) on success, or an error on failure.
     ///
-    /// **Async**: Yes
-    /// 
     /// **Notes**:
-    /// - The provided `js_password` buffer is cleared immediately after use.
-    #[wasm_bindgen]
-    pub async fn recover_accounts(
+    /// - The provided `password` buffer is cleared immediately after use.
+    pub fn recover_accounts(
         &self,
-        js_password: Uint8Array,
+        password: Vec<u8>,
         count: u32,
-    ) -> Result<Vec<String>, JsValue> {
-        let password = SecureVec::from_slice(&js_password.to_vec());
-        js_password.fill(0, 0, js_password.length());
+    ) -> Result<Vec<String>, String> {
+        let password = SecureVec::from_slice(&password);
 
         if password.is_empty() || password.is_uninitialized() {
-            return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
+            return Err("Password cannot be empty or uninitialized".to_string());
         }
 
         // Get and decrypt the master seed
         let payload = db::get_encrypted_seed()
-            .await
-            .map_err(|e| e.to_jsvalue())?
-            .ok_or_else(|| JsValue::from_str("Master seed not found"))?;
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "Master seed not found".to_string())?;
         let mut lock_args_array: Vec<String> = Vec::new();
         let seed = utilities::decrypt(&password, payload)?;
         for index in 0..count {
             let (pub_key, pri_key) = self
                 .derive_spx_keys(&seed, index)
-                .map_err(|e| JsValue::from_str(&format!("Key derivation error: {}", e)))?;
+                .map_err(|e| format!("Key derivation error: {}", e))?;
 
             // Calculate lock script args and encrypt corresponding private key
             let lock_script_args = self.get_lock_scrip_arg(&pub_key);
@@ -521,7 +447,7 @@ impl KeyVault {
             };
             lock_args_array.push(encode(lock_script_args));
 
-            db::add_account(account).await.map_err(|e| e.to_jsvalue())?;
+            db::add_account(account).map_err(|e| e.to_string())?;
         }
         Ok(lock_args_array)
     }
@@ -552,26 +478,20 @@ impl KeyVault {
 ////////////////////////////////////////////////////////////////////////////////
 ///  Key-vault utility functions
 ////////////////////////////////////////////////////////////////////////////////
-#[wasm_bindgen]
 pub struct Util;
 
-#[wasm_bindgen]
 impl Util {
+    /// Generates CKB transaction message all hash.
     /// https://github.com/xxuejie/rfcs/blob/cighash-all/rfcs/0000-ckb-tx-message-all/0000-ckb-tx-message-all.md.
     ///
     /// **Parameters**:
-    /// - `serialized_mock_tx: Uint8Array` - serialized CKB mock transaction.
+    /// - `serialized_mock_tx: Vec<u8>` - serialized CKB mock transaction.
     ///
     /// **Returns**:
-    /// - `Result<Uint8Array, JsValue>` - The CKB transaction message all hash digest as a `Uint8Array` on success,
-    ///   or a JavaScript error on failure.
-    ///
-    /// **Async**: no
-    #[wasm_bindgen]
-    pub fn get_ckb_tx_message_all(serialized_mock_tx: Uint8Array) -> Result<Uint8Array, JsValue> {
-        let serialized_bytes = serialized_mock_tx.to_vec();
-        let repr_mock_tx: ReprMockTransaction = serde_json::from_slice(&serialized_bytes)
-            .map_err(|e| JsValue::from_str(&format!("Deserialization error: {}", e)))?;
+    /// - `Result<Vec<u8>, String>` - The CKB transaction message all hash digest on success, or an error on failure.
+    pub fn get_ckb_tx_message_all(serialized_mock_tx: Vec<u8>) -> Result<Vec<u8>, String> {
+        let repr_mock_tx: ReprMockTransaction = serde_json::from_slice(&serialized_mock_tx)
+            .map_err(|e| format!("Deserialization error: {}", e))?;
         let mock_tx: MockTransaction = repr_mock_tx.into();
         let mut message_hasher = Hasher::message_hasher();
         generate_ckb_tx_message_all_from_mock_tx(
@@ -579,9 +499,9 @@ impl Util {
             ScriptOrIndex::Index(0),
             &mut message_hasher,
         )
-        .map_err(|e| JsValue::from_str(&format!("CKB_TX_MESSAGE_ALL error: {:?}", e)))?;
+        .map_err(|e| format!("CKB_TX_MESSAGE_ALL error: {:?}", e))?;
         let message = message_hasher.hash();
-        Ok(Uint8Array::from(message.as_slice()))
+        Ok(message.to_vec())
     }
 
     /// Check strength of a password.
@@ -590,27 +510,22 @@ impl Util {
     /// By default will require at least 20 characters
     ///
     /// **Parameters**:
-    /// - `js_password: Uint8Array` - utf8 serialized password, input from js env.
+    /// - `password: Vec<u8>` - utf8 serialized password.
     ///
     /// **Returns**:
-    /// - `Result<u16, JsValue>` - The strength of the password measured in bit on success,
-    ///   or a JavaScript error on failure.
+    /// - `Result<u32, String>` - The strength of the password measured in bit on success, or an error on failure.
     ///
-    /// **Async**: no
-    /// 
     /// **Notes**:
-    /// - The provided `js_password` buffer is cleared immediately after use.
-    #[wasm_bindgen]
-    pub fn password_checker(js_password: Uint8Array) -> Result<u32, JsValue> {
-        let password = SecureVec::from_slice(&js_password.to_vec());
-        js_password.fill(0, 0, js_password.length());
+    /// - The provided `password` buffer is cleared immediately after use.
+    pub fn password_checker(password: Vec<u8>) -> Result<u32, String> {
+        let password = SecureVec::from_slice(&password);
 
         if password.is_empty() || password.is_uninitialized() {
-            return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
+            return Err("Password cannot be empty or uninitialized".to_string());
         }
-        
+
         let password_str =
-            std::str::from_utf8(&password).map_err(|e| JsValue::from_str(&e.to_string()))?;
+            std::str::from_utf8(&password).map_err(|e| e.to_string())?;
 
         let mut has_space = false;
         let mut has_lowercase = false;
@@ -645,22 +560,22 @@ impl Util {
         }
 
         if has_consecutive_repeats {
-            return Err(JsValue::from_str("Password must not contain consecutive repeated characters!"));
+            return Err("Password must not contain consecutive repeated characters!".to_string());
         }
         if !has_uppercase {
-            return Err(JsValue::from_str("Password must contain at least one uppercase letter!"));
+            return Err("Password must contain at least one uppercase letter!".to_string());
         }
         if !has_lowercase {
-            return Err(JsValue::from_str("Password must contain at least one lowercase letter!"));
+            return Err("Password must contain at least one lowercase letter!".to_string());
         }
         if !has_digit {
-            return Err(JsValue::from_str("Password must contain at least one digit!"));
+            return Err("Password must contain at least one digit!".to_string());
         }
         if !has_punctuation {
-            return Err(JsValue::from_str("Password must contain at least one symbol!"));
+            return Err("Password must contain at least one symbol!".to_string());
         }
         if password_str.len() < 20 {
-            return Err(JsValue::from_str("Password must contain at least 20 characters!"));
+            return Err("Password must contain at least 20 characters!".to_string());
         }
 
         let character_set_size = if has_other {
