@@ -95,11 +95,11 @@ fn parse_variant(variant_str: &str) -> Result<SpxVariant, String> {
     }
 }
 
-fn read_password_from_user(prompt: &str) -> Result<Vec<u8>, String> {
+fn read_hidden_input(prompt: &str) -> Result<Vec<u8>, String> {
     print!("{}", prompt);
     io::stdout().flush().map_err(|e| e.to_string())?;
-    let password = read_password().map_err(|e| e.to_string())?;
-    Ok(password.into_bytes())
+    let input = read_password().map_err(|e| e.to_string())?;
+    Ok(input.into_bytes())
 }
 
 fn main() -> Result<(), String> {
@@ -113,8 +113,8 @@ fn main() -> Result<(), String> {
             println!("Initializing wallet with variant: {}", variant);
             println!("Required mnemonic words: {}", variant.required_bip39_size_in_word_total());
 
-            let password = read_password_from_user("Enter password: ")?;
-            let confirm = read_password_from_user("Confirm password: ")?;
+            let password = read_hidden_input("Enter password: ")?;
+            let confirm = read_hidden_input("Confirm password: ")?;
 
             if password != confirm {
                 return Err("Passwords do not match".to_string());
@@ -138,14 +138,12 @@ fn main() -> Result<(), String> {
             let seed_phrase = if let Some(file_path) = seed_file {
                 fs::read_to_string(file_path).map_err(|e| e.to_string())?
             } else {
-                println!("Enter seed phrase (press Ctrl+D when done):");
-                let mut buffer = String::new();
-                io::stdin().read_line(&mut buffer).map_err(|e| e.to_string())?;
-                buffer
+                String::from_utf8(read_hidden_input("Enter seed phrase: ")?)
+                    .map_err(|e| e.to_string())?
             };
 
-            let password = read_password_from_user("Enter password: ")?;
-            let confirm = read_password_from_user("Confirm password: ")?;
+            let password = read_hidden_input("Enter password: ")?;
+            let confirm = read_hidden_input("Confirm password: ")?;
 
             if password != confirm {
                 return Err("Passwords do not match".to_string());
@@ -159,7 +157,7 @@ fn main() -> Result<(), String> {
             let variant = KeyVault::get_stored_variant()?;
             let vault = KeyVault::new(variant);
 
-            let password = read_password_from_user("Enter password: ")?;
+            let password = read_hidden_input("Enter password: ")?;
             let seed_phrase = vault.export_seed_phrase(password)?;
             let seed_str = String::from_utf8(seed_phrase).map_err(|e| e.to_string())?;
 
@@ -176,7 +174,7 @@ fn main() -> Result<(), String> {
             let variant = KeyVault::get_stored_variant()?;
             let vault = KeyVault::new(variant);
 
-            let password = read_password_from_user("Enter password: ")?;
+            let password = read_hidden_input("Enter password: ")?;
             let lock_args = vault.gen_new_account(password)?;
             println!("✓ New account created");
             println!("Lock args: {}", lock_args);
@@ -202,7 +200,7 @@ fn main() -> Result<(), String> {
             let vault = KeyVault::new(variant);
 
             let message_bytes = hex::decode(&message).map_err(|e| e.to_string())?;
-            let password = read_password_from_user("Enter password: ")?;
+            let password = read_hidden_input("Enter password: ")?;
 
             let signature = vault.sign(password, lock_args, message_bytes)?;
             println!("Signature: {}", hex::encode(signature));
@@ -212,7 +210,7 @@ fn main() -> Result<(), String> {
             let variant = KeyVault::get_stored_variant()?;
             let vault = KeyVault::new(variant);
 
-            let password = read_password_from_user("Enter password: ")?;
+            let password = read_hidden_input("Enter password: ")?;
             let accounts = vault.recover_accounts(password, count)?;
 
             println!("✓ Recovered {} accounts:", accounts.len());
@@ -228,7 +226,7 @@ fn main() -> Result<(), String> {
             let variant = KeyVault::get_stored_variant()?;
             let vault = KeyVault::new(variant);
 
-            let password = read_password_from_user("Enter password: ")?;
+            let password = read_hidden_input("Enter password: ")?;
             let accounts = vault.try_gen_account_batch(password, start, count)?;
 
             println!("Generated {} lock args:", accounts.len());
@@ -253,7 +251,7 @@ fn main() -> Result<(), String> {
         }
 
         Commands::CheckPassword => {
-            let password = read_password_from_user("Enter password to check: ")?;
+            let password = read_hidden_input("Enter password to check: ")?;
             match Util::password_checker(password) {
                 Ok(strength) => {
                     println!("✓ Password is valid");
@@ -266,12 +264,15 @@ fn main() -> Result<(), String> {
         Commands::Info => {
             let variant = KeyVault::get_stored_variant()?;
             let accounts = KeyVault::get_all_sphincs_lock_args()?;
+            let data_path = quantum_purse_key_vault::db::get_data_dir()
+                .map_err(|e| e.to_string())?;
 
             println!("Wallet Information:");
             println!("  SPHINCS+ Variant: {}", variant);
             println!("  Security Level: {} bits", variant.required_entropy_size_component() * 8);
             println!("  Mnemonic Words: {}", variant.required_bip39_size_in_word_total());
             println!("  Total Accounts: {}", accounts.len());
+            println!("  Data Storage Path: {}", data_path.display());
         }
 
         Commands::GetMessage { tx_file } => {
