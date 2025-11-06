@@ -149,6 +149,12 @@ fn main() -> Result<(), String> {
                 return Err("Passwords do not match".to_string());
             }
 
+            // Check password strength
+            match Util::password_checker(password.clone()) {
+                Ok(strength) => println!("Password strength: {} bits", strength),
+                Err(e) => return Err(format!("Password validation failed: {}", e)),
+            }
+
             vault.import_seed_phrase(seed_phrase.into_bytes(), password)?;
             println!("✓ Seed phrase imported successfully");
         }
