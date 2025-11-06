@@ -346,18 +346,18 @@ impl KeyVault {
         let pri_key = utilities::decrypt(&password, account.pri_enc)?;
 
         match self.variant {
-            SpxVariant::Sha2128S => spx_sign_native!(slh_dsa_sha2_128s, pri_key, &message, self.variant),
-            SpxVariant::Sha2128F => spx_sign_native!(slh_dsa_sha2_128f, pri_key, &message, self.variant),
-            SpxVariant::Shake128S => spx_sign_native!(slh_dsa_shake_128s, pri_key, &message, self.variant),
-            SpxVariant::Shake128F => spx_sign_native!(slh_dsa_shake_128f, pri_key, &message, self.variant),
-            SpxVariant::Sha2192S => spx_sign_native!(slh_dsa_sha2_192s, pri_key, &message, self.variant),
-            SpxVariant::Sha2192F => spx_sign_native!(slh_dsa_sha2_192f, pri_key, &message, self.variant),
-            SpxVariant::Shake192S => spx_sign_native!(slh_dsa_shake_192s, pri_key, &message, self.variant),
-            SpxVariant::Shake192F => spx_sign_native!(slh_dsa_shake_192f, pri_key, &message, self.variant),
-            SpxVariant::Sha2256S => spx_sign_native!(slh_dsa_sha2_256s, pri_key, &message, self.variant),
-            SpxVariant::Sha2256F => spx_sign_native!(slh_dsa_sha2_256f, pri_key, &message, self.variant),
-            SpxVariant::Shake256S => spx_sign_native!(slh_dsa_shake_256s, pri_key, &message, self.variant),
-            SpxVariant::Shake256F => spx_sign_native!(slh_dsa_shake_256f, pri_key, &message, self.variant),
+            SpxVariant::Sha2128S => spx_sign!(slh_dsa_sha2_128s, pri_key, &message, self.variant),
+            SpxVariant::Sha2128F => spx_sign!(slh_dsa_sha2_128f, pri_key, &message, self.variant),
+            SpxVariant::Shake128S => spx_sign!(slh_dsa_shake_128s, pri_key, &message, self.variant),
+            SpxVariant::Shake128F => spx_sign!(slh_dsa_shake_128f, pri_key, &message, self.variant),
+            SpxVariant::Sha2192S => spx_sign!(slh_dsa_sha2_192s, pri_key, &message, self.variant),
+            SpxVariant::Sha2192F => spx_sign!(slh_dsa_sha2_192f, pri_key, &message, self.variant),
+            SpxVariant::Shake192S => spx_sign!(slh_dsa_shake_192s, pri_key, &message, self.variant),
+            SpxVariant::Shake192F => spx_sign!(slh_dsa_shake_192f, pri_key, &message, self.variant),
+            SpxVariant::Sha2256S => spx_sign!(slh_dsa_sha2_256s, pri_key, &message, self.variant),
+            SpxVariant::Sha2256F => spx_sign!(slh_dsa_sha2_256f, pri_key, &message, self.variant),
+            SpxVariant::Shake256S => spx_sign!(slh_dsa_shake_256s, pri_key, &message, self.variant),
+            SpxVariant::Shake256F => spx_sign!(slh_dsa_shake_256f, pri_key, &message, self.variant),
         }
     }
 

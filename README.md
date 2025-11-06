@@ -66,12 +66,7 @@ master_seed
 
 ### Build
 ```shell
-# Initialize submodule quantum-resistant-lockscript
-git submodule update --init
-
 # Build release binary
-./build.sh
-# or
 cargo build --release
 
 # Run tests
@@ -89,11 +84,11 @@ The CLI provides the following commands:
 # Initialize a new wallet
 qpkv init --variant Sha2256S
 
-# Import an existing wallet
-qpkv import --variant Sha2256S
+# ImportMnemonic an existing wallet
+qpkv import-mnemonic --variant Sha2256S
 
-# Export seed phrase
-qpkv export --variant Sha2256S
+# ExportMnemonic seed phrase
+qpkv export-mnemonic --variant Sha2256S
 
 # Generate a new account
 qpkv new-account --variant Sha2256S
@@ -108,7 +103,7 @@ qpkv sign --variant Sha2256S --lock-args <LOCK_ARGS> --message <HEX_MESSAGE>
 qpkv recover --variant Sha2256S --count 5
 
 # Generate account batch for discovery
-qpkv batch --variant Sha2256S --start 0 --count 10
+qpkv try-gen-batch --variant Sha2256S --start 0 --count 10
 
 # Check password strength
 qpkv check-password

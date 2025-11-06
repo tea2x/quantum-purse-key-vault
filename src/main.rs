@@ -20,8 +20,8 @@ enum Commands {
         #[arg(short, long)]
         variant: String,
     },
-    /// Import a wallet from a seed phrase
-    Import {
+    /// ImportMnemonic a wallet from a seed phrase
+    ImportMnemonic {
         /// SPHINCS+ variant
         #[arg(short, long)]
         variant: String,
@@ -29,8 +29,8 @@ enum Commands {
         #[arg(short, long)]
         seed_file: Option<String>,
     },
-    /// Export the seed phrase
-    Export {
+    /// ExportMnemonic the seed phrase
+    ExportMnemonic {
         /// Output file path (optional, will print to stdout if not provided)
         #[arg(short, long)]
         output: Option<String>,
@@ -55,7 +55,7 @@ enum Commands {
         count: u32,
     },
     /// Generate account batch (for discovery)
-    Batch {
+    TryGenBatch {
         /// Start index
         #[arg(short, long)]
         start: u32,
@@ -70,7 +70,7 @@ enum Commands {
     /// Display wallet information
     Info,
     /// Get CKB transaction message hash from mock transaction
-    GetMessage {
+    GetCkbTxMessage {
         /// Path to serialized mock transaction file
         #[arg(short, long)]
         tx_file: String,
@@ -131,7 +131,7 @@ fn main() -> Result<(), String> {
             println!("⚠️  Make sure to backup your seed phrase using the 'export' command");
         }
 
-        Commands::Import { variant, seed_file } => {
+        Commands::ImportMnemonic { variant, seed_file } => {
             let variant = parse_variant(&variant)?;
             let vault = KeyVault::new(variant);
 
@@ -153,7 +153,7 @@ fn main() -> Result<(), String> {
             println!("✓ Seed phrase imported successfully");
         }
 
-        Commands::Export { output } => {
+        Commands::ExportMnemonic { output } => {
             let variant = KeyVault::get_stored_variant()?;
             let vault = KeyVault::new(variant);
 
@@ -219,7 +219,7 @@ fn main() -> Result<(), String> {
             }
         }
 
-        Commands::Batch {
+        Commands::TryGenBatch {
             start,
             count,
         } => {
@@ -275,10 +275,10 @@ fn main() -> Result<(), String> {
             println!("  Data Storage Path: {}", data_path.display());
         }
 
-        Commands::GetMessage { tx_file } => {
+        Commands::GetCkbTxMessage { tx_file } => {
             let tx_data = fs::read(tx_file).map_err(|e| e.to_string())?;
             let message = Util::get_ckb_tx_message_all(tx_data)?;
-            println!("Message hash: {}", hex::encode(message));
+            println!("CKB Tx message hash: {}", hex::encode(message));
         }
     }
 

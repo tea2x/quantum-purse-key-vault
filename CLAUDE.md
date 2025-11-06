@@ -113,7 +113,7 @@ SPHINCS+ keygen
 ## Development Notes
 
 - The `KeyVault` struct is instantiated with a specific `SpxVariant` that determines seed size, mnemonic word count, and key sizes
-- Use the `spx_keygen!` and `spx_sign_native!` macros to avoid code duplication across 12 SPHINCS+ variants
+- Use the `spx_keygen!` and `spx_sign!` macros to avoid code duplication across 12 SPHINCS+ variants
 - All functions are synchronous and use file I/O for storage
 - The project uses standard `getrandom` for CSPRNG
 - Lock script arguments serve as the primary key for accounts in the HashMap

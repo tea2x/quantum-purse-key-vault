@@ -162,15 +162,6 @@ pub fn get_all_accounts() -> Result<Vec<SphincsPlusAccount>, KeyVaultDBError> {
     Ok(account_list)
 }
 
-/// Gets the count of stored accounts.
-///
-/// **Returns**:
-/// - `Result<usize, KeyVaultDBError>` - The count of accounts.
-pub fn get_account_count() -> Result<usize, KeyVaultDBError> {
-    let accounts = load_accounts()?;
-    Ok(accounts.len())
-}
-
 /// Stores wallet info in the file system.
 ///
 /// **Parameters**:
