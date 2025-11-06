@@ -42,7 +42,7 @@ pub struct SphincsPlusAccount {
 /// - `variant: SpxVariant` - The SPHINCS+ variant used for this wallet.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WalletInfo {
-    pub variant: SpxVariant,
+    pub spx_variant: SpxVariant,
 }
 
 /// ID of all 12 SPHINCS+ variants following https://github.com/cryptape/quantum-resistant-lock-script/pull/14

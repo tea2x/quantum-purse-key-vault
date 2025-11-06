@@ -25,12 +25,12 @@ pub fn get_data_dir() -> Result<PathBuf, KeyVaultDBError> {
     Ok(data_dir)
 }
 
-/// Gets the path to the master seed file
+/// Gets the path to the encrypted master seed file
 fn get_master_seed_path() -> Result<PathBuf, KeyVaultDBError> {
     Ok(get_data_dir()?.join("master_seed.json"))
 }
 
-/// Gets the path to the accounts file
+/// Gets the path to the encrypted accounts file
 fn get_accounts_path() -> Result<PathBuf, KeyVaultDBError> {
     Ok(get_data_dir()?.join("accounts.json"))
 }

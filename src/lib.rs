@@ -97,11 +97,11 @@ impl KeyVault {
     ///
     /// **Returns**:
     /// - `Result<SpxVariant, String>` - The stored variant on success, or an error if not found.
-    pub fn get_stored_variant() -> Result<SpxVariant, String> {
+    pub fn get_spx_variant() -> Result<SpxVariant, String> {
         let wallet_info = db::get_wallet_info()
             .map_err(|e| e.to_string())?
             .ok_or_else(|| "Wallet not initialized. Run 'init' or 'import' first.".to_string())?;
-        Ok(wallet_info.variant)
+        Ok(wallet_info.spx_variant)
     }
 
     /// Retrieves all SPHINCS+ lock script arguments (processed public keys) from the database in the order they get inserted.
@@ -156,9 +156,9 @@ impl KeyVault {
 
         db::set_encrypted_seed(encrypted_seed).map_err(|e| e.to_string())?;
 
-        // Store wallet info with variant
+        // Store wallet info with SPHINCS+ variant
         let wallet_info = types::WalletInfo {
-            variant: self.variant,
+            spx_variant: self.variant,
         };
         db::set_wallet_info(wallet_info).map_err(|e| e.to_string())?;
 
@@ -269,9 +269,9 @@ impl KeyVault {
         let payload = utilities::encrypt(&password, &combined_entropy)?;
         db::set_encrypted_seed(payload).map_err(|e| e.to_string())?;
 
-        // Store wallet info with variant
+        // Store wallet info with SPHINCS+ variant
         let wallet_info = types::WalletInfo {
-            variant: self.variant,
+            spx_variant: self.variant,
         };
         db::set_wallet_info(wallet_info).map_err(|e| e.to_string())?;
 

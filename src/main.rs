@@ -160,7 +160,7 @@ fn main() -> Result<(), String> {
         }
 
         Commands::ExportMnemonic { output } => {
-            let variant = KeyVault::get_stored_variant()?;
+            let variant = KeyVault::get_spx_variant()?;
             let vault = KeyVault::new(variant);
 
             let password = read_hidden_input("Enter password: ")?;
@@ -177,7 +177,7 @@ fn main() -> Result<(), String> {
         }
 
         Commands::NewAccount => {
-            let variant = KeyVault::get_stored_variant()?;
+            let variant = KeyVault::get_spx_variant()?;
             let vault = KeyVault::new(variant);
 
             let password = read_hidden_input("Enter password: ")?;
@@ -202,7 +202,7 @@ fn main() -> Result<(), String> {
             lock_args,
             message,
         } => {
-            let variant = KeyVault::get_stored_variant()?;
+            let variant = KeyVault::get_spx_variant()?;
             let vault = KeyVault::new(variant);
 
             let message_bytes = hex::decode(&message).map_err(|e| e.to_string())?;
@@ -213,7 +213,7 @@ fn main() -> Result<(), String> {
         }
 
         Commands::Recover { count } => {
-            let variant = KeyVault::get_stored_variant()?;
+            let variant = KeyVault::get_spx_variant()?;
             let vault = KeyVault::new(variant);
 
             let password = read_hidden_input("Enter password: ")?;
@@ -229,7 +229,7 @@ fn main() -> Result<(), String> {
             start,
             count,
         } => {
-            let variant = KeyVault::get_stored_variant()?;
+            let variant = KeyVault::get_spx_variant()?;
             let vault = KeyVault::new(variant);
 
             let password = read_hidden_input("Enter password: ")?;
@@ -268,7 +268,7 @@ fn main() -> Result<(), String> {
         }
 
         Commands::Info => {
-            let variant = KeyVault::get_stored_variant()?;
+            let variant = KeyVault::get_spx_variant()?;
             let accounts = KeyVault::get_all_sphincs_lock_args()?;
             let data_path = quantum_purse_key_vault::db::get_data_dir()
                 .map_err(|e| e.to_string())?;
