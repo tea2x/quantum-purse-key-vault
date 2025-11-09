@@ -22,11 +22,15 @@ impl SecureVec {
         SecureVec(slice.to_vec())
     }
 
-    pub fn from_uint8array(input: &Uint8Array) -> Self {
+    pub fn from_uint8array(input: &Uint8Array) -> Result<Self, String> {
         let len = input.length() as usize;
         let mut output = SecureVec::new_with_length(len);
         input.copy_to(&mut output.0);
-        output
+
+        std::str::from_utf8(&output)
+            .map_err(|_| "Invalid UTF-8 text".to_string())?;
+
+        Ok(output)
     }
 
     pub fn extend(&mut self, slice: &[u8]) {
