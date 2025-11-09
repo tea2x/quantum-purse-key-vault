@@ -182,7 +182,7 @@ impl KeyVault {
     /// - The provided `js_password` buffer is cleared immediately after use.
     #[wasm_bindgen]
     pub async fn generate_master_seed(&self, js_password: Uint8Array) -> Result<(), JsValue> {
-        let password = SecureVec::from_slice(&js_password.to_vec());
+        let password = SecureVec::from_uint8array(&js_password);
         js_password.fill(0, 0, js_password.length());
 
         if password.is_empty() || password.is_uninitialized() {
@@ -220,7 +220,7 @@ impl KeyVault {
     /// - The provided `js_password` buffer is cleared immediately after use.
     #[wasm_bindgen]
     pub async fn gen_new_account(&self, js_password: Uint8Array) -> Result<String, JsValue> {
-        let password = SecureVec::from_slice(&js_password.to_vec());
+        let password = SecureVec::from_uint8array(&js_password);
         js_password.fill(0, 0, js_password.length());
 
         if password.is_empty() || password.is_uninitialized() {
@@ -277,7 +277,7 @@ impl KeyVault {
         js_seed_phrase: Uint8Array,
         js_password: Uint8Array,
     ) -> Result<(), JsValue> {
-        let password = SecureVec::from_slice(&js_password.to_vec());
+        let password = SecureVec::from_uint8array(&js_password);
         js_password.fill(0, 0, js_password.length());
 
         let seed_phrase_str = SecureString::from_utf8(js_seed_phrase.to_vec())
@@ -345,7 +345,7 @@ impl KeyVault {
     /// - The provided `js_password` buffer is cleared immediately after use.
     #[wasm_bindgen]
     pub async fn export_seed_phrase(&self, js_password: Uint8Array) -> Result<Uint8Array, JsValue> {
-        let password = SecureVec::from_slice(&js_password.to_vec());
+        let password = SecureVec::from_uint8array(&js_password);
         js_password.fill(0, 0, js_password.length());
 
         if password.is_empty() || password.is_uninitialized() {
@@ -393,7 +393,7 @@ impl KeyVault {
         lock_args: String,
         message: Uint8Array,
     ) -> Result<Uint8Array, JsValue> {
-        let password = SecureVec::from_slice(&js_password.to_vec());
+        let password = SecureVec::from_uint8array(&js_password);
         js_password.fill(0, 0, js_password.length());
 
         if password.is_empty() || password.is_uninitialized() {
@@ -446,7 +446,7 @@ impl KeyVault {
         start_index: u32,
         count: u32,
     ) -> Result<Vec<String>, JsValue> {
-        let password = SecureVec::from_slice(&js_password.to_vec());
+        let password = SecureVec::from_uint8array(&js_password);
         js_password.fill(0, 0, js_password.length());
 
         if password.is_empty() || password.is_uninitialized() {
@@ -491,7 +491,7 @@ impl KeyVault {
         js_password: Uint8Array,
         count: u32,
     ) -> Result<Vec<String>, JsValue> {
-        let password = SecureVec::from_slice(&js_password.to_vec());
+        let password = SecureVec::from_uint8array(&js_password);
         js_password.fill(0, 0, js_password.length());
 
         if password.is_empty() || password.is_uninitialized() {
@@ -602,7 +602,7 @@ impl Util {
     /// - The provided `js_password` buffer is cleared immediately after use.
     #[wasm_bindgen]
     pub fn password_checker(js_password: Uint8Array) -> Result<u32, JsValue> {
-        let password = SecureVec::from_slice(&js_password.to_vec());
+        let password = SecureVec::from_uint8array(&js_password);
         js_password.fill(0, 0, js_password.length());
 
         if password.is_empty() || password.is_uninitialized() {
