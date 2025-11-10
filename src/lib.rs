@@ -283,8 +283,8 @@ impl KeyVault {
             .map_err(|e| JsValue::from_str(&e))?;
         js_password.fill(0, 0, js_password.length());
 
-        let seed_phrase_str = SecureString::from_utf8(js_seed_phrase.to_vec())
-            .map_err(|e| JsValue::from_str(&format!("Invalid UTF-8: {}", e)))?;
+        let seed_phrase_str = SecureString::from_uint8array(&js_seed_phrase)
+            .map_err(|e| JsValue::from_str(&e))?;
         js_seed_phrase.fill(0, 0, js_seed_phrase.length());
 
         if password.is_empty() || password.is_uninitialized() {

@@ -18,8 +18,8 @@ impl SecureVec {
         SecureVec(vec![0u8; len])
     }
 
-    pub fn from_slice(slice: &[u8]) -> Self {
-        SecureVec(slice.to_vec())
+    pub fn from_vec(vec: Vec<u8>) -> Self {
+        SecureVec(vec)
     }
 
     pub fn from_uint8array(input: &Uint8Array) -> Result<Self, String> {
@@ -28,7 +28,7 @@ impl SecureVec {
         input.copy_to(&mut output.0);
 
         std::str::from_utf8(&output)
-            .map_err(|_| "Invalid UTF-8 text".to_string())?;
+            .map_err(|_| "Invalid UTF-8 input".to_string())?;
 
         Ok(output)
     }
