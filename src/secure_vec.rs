@@ -6,7 +6,6 @@ use zeroize::Zeroize;
 #[cfg(test)]
 use std::sync::atomic::{AtomicBool, Ordering};
 use aes_gcm::aead::{Buffer, Error as AeadError};
-use web_sys::js_sys::Uint8Array;
 #[cfg(test)]
 pub static ZEROIZED: AtomicBool = AtomicBool::new(false);
 
@@ -22,23 +21,8 @@ impl SecureVec {
         SecureVec(vec)
     }
 
-    pub fn from_uint8array(input: &Uint8Array) -> Result<Self, String> {
-        let len = input.length() as usize;
-        let mut output = SecureVec::new_with_length(len);
-        input.copy_to(&mut output.0);
-
-        std::str::from_utf8(&output)
-            .map_err(|_| "Invalid UTF-8 input".to_string())?;
-
-        Ok(output)
-    }
-
     pub fn extend(&mut self, slice: &[u8]) {
         self.0.extend_from_slice(slice);
-    }
-
-    pub fn is_uninitialized(&self) -> bool {
-        self.0.iter().all(|&byte| byte == 0)
     }
 }
 
