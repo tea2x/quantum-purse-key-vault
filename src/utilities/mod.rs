@@ -99,7 +99,7 @@ pub fn decrypt(password: &[u8], payload: CipherPayload) -> Result<SecureVec, Str
     let cipher = Aes256Gcm::new(aes_key);
     let nonce = Nonce::from_slice(&iv);
 
-    let mut secure_decipher = SecureVec::from_slice(&cipher_text);
+    let mut secure_decipher = SecureVec::from_vec(cipher_text);
     cipher.decrypt_in_place(&nonce, b"", &mut secure_decipher)
         .map_err(|e| format!("Decryption error: {:?}", e))?;
     Ok(secure_decipher)

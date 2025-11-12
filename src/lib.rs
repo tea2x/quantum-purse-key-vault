@@ -138,7 +138,7 @@ impl KeyVault {
     /// **Notes**:
     /// - The provided `password` buffer is cleared immediately after use.
     pub fn generate_master_seed(&self, password: Vec<u8>) -> Result<(), String> {
-        let password = SecureVec::from_slice(&password);
+        let password = SecureVec::from_vec(password);
 
         if password.is_empty() || password.is_uninitialized() {
             return Err("Password cannot be empty or uninitialized".to_string());
@@ -176,7 +176,7 @@ impl KeyVault {
     /// **Notes**:
     /// - The provided `password` buffer is cleared immediately after use.
     pub fn gen_new_account(&self, password: Vec<u8>) -> Result<String, String> {
-        let password = SecureVec::from_slice(&password);
+        let password = SecureVec::from_vec(password);
 
         if password.is_empty() || password.is_uninitialized() {
             return Err("Password cannot be empty or uninitialized".to_string());
@@ -227,7 +227,7 @@ impl KeyVault {
         seed_phrase: Vec<u8>,
         password: Vec<u8>,
     ) -> Result<(), String> {
-        let password = SecureVec::from_slice(&password);
+        let password = SecureVec::from_vec(password);
         let seed_phrase_str = SecureString::from_utf8(seed_phrase)
             .map_err(|e| format!("Invalid UTF-8: {}", e))?;
 
@@ -291,7 +291,7 @@ impl KeyVault {
     /// **Notes**:
     /// - The provided `password` buffer is cleared immediately after use.
     pub fn export_seed_phrase(&self, password: Vec<u8>) -> Result<Vec<u8>, String> {
-        let password = SecureVec::from_slice(&password);
+        let password = SecureVec::from_vec(password);
 
         if password.is_empty() || password.is_uninitialized() {
             return Err("Password cannot be empty or uninitialized".to_string());
@@ -333,7 +333,7 @@ impl KeyVault {
         lock_args: String,
         message: Vec<u8>,
     ) -> Result<Vec<u8>, String> {
-        let password = SecureVec::from_slice(&password);
+        let password = SecureVec::from_vec(password);
 
         if password.is_empty() || password.is_uninitialized() {
             return Err("Password cannot be empty or uninitialized".to_string());
@@ -379,7 +379,7 @@ impl KeyVault {
         start_index: u32,
         count: u32,
     ) -> Result<Vec<String>, String> {
-        let password = SecureVec::from_slice(&password);
+        let password = SecureVec::from_vec(password);
 
         if password.is_empty() || password.is_uninitialized() {
             return Err("Password cannot be empty or uninitialized".to_string());
@@ -419,7 +419,7 @@ impl KeyVault {
         password: Vec<u8>,
         count: u32,
     ) -> Result<Vec<String>, String> {
-        let password = SecureVec::from_slice(&password);
+        let password = SecureVec::from_vec(password);
 
         if password.is_empty() || password.is_uninitialized() {
             return Err("Password cannot be empty or uninitialized".to_string());
@@ -518,7 +518,7 @@ impl Util {
     /// **Notes**:
     /// - The provided `password` buffer is cleared immediately after use.
     pub fn password_checker(password: Vec<u8>) -> Result<u32, String> {
-        let password = SecureVec::from_slice(&password);
+        let password = SecureVec::from_vec(password);
 
         if password.is_empty() || password.is_uninitialized() {
             return Err("Password cannot be empty or uninitialized".to_string());
