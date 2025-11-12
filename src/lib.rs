@@ -369,7 +369,9 @@ impl KeyVault {
         for chunk in chunks {
             let mnemonic = Mnemonic::from_entropy_in(Language::English, chunk)
                 .map_err(|e| JsValue::from_str(&format!("Export seed error: {}", e)))?;
-            combined_mnemonic.extend(&mnemonic.to_string());
+            for word in mnemonic.words() {
+                combined_mnemonic.extend(word);
+            }
         }
         Ok(Uint8Array::from(combined_mnemonic.as_ref()))
     }
