@@ -138,7 +138,7 @@ impl KeyVault {
     /// **Notes**:
     /// - The provided `password` buffer is cleared immediately after use.
     pub fn generate_master_seed(&self, password: Vec<u8>) -> Result<(), String> {
-        let password = SecureVec::from_vec(password);
+        let password = SecureString::from_utf8(password)?;
 
         if password.is_empty() || password.is_uninitialized() {
             return Err("Password cannot be empty or uninitialized".to_string());
@@ -151,7 +151,7 @@ impl KeyVault {
         let size = self.variant.required_entropy_size_total();
         let entropy = utilities::get_random_bytes(size)
             .map_err(|e| format!("Failed generating master seed: {}", e))?;
-        let encrypted_seed = utilities::encrypt(&password, entropy.as_ref())
+        let encrypted_seed = utilities::encrypt(password.as_ref(), entropy.as_ref())
             .map_err(|e| format!("Encryption error: {}", e))?;
 
         db::set_encrypted_seed(encrypted_seed).map_err(|e| e.to_string())?;
@@ -176,7 +176,7 @@ impl KeyVault {
     /// **Notes**:
     /// - The provided `password` buffer is cleared immediately after use.
     pub fn gen_new_account(&self, password: Vec<u8>) -> Result<String, String> {
-        let password = SecureVec::from_vec(password);
+        let password = SecureString::from_utf8(password)?;
 
         if password.is_empty() || password.is_uninitialized() {
             return Err("Password cannot be empty or uninitialized".to_string());
@@ -186,7 +186,7 @@ impl KeyVault {
         let payload = db::get_encrypted_seed()
             .map_err(|e| e.to_string())?
             .ok_or_else(|| "Master seed not found".to_string())?;
-        let seed = utilities::decrypt(&password, payload)?;
+        let seed = utilities::decrypt(password.as_ref(), payload)?;
 
         let index = Self::get_all_sphincs_lock_args()?.len() as u32;
         let (pub_key, pri_key) = self
@@ -195,7 +195,7 @@ impl KeyVault {
 
         // Calculate lock script args and encrypt corresponding private key
         let lock_script_args = self.get_lock_scrip_arg(&pub_key);
-        let encrypted_pri = utilities::encrypt(&password, &pri_key)?;
+        let encrypted_pri = utilities::encrypt(password.as_ref(), &pri_key)?;
 
         // Store to DB
         let account = SphincsPlusAccount {
@@ -227,9 +227,8 @@ impl KeyVault {
         seed_phrase: Vec<u8>,
         password: Vec<u8>,
     ) -> Result<(), String> {
-        let password = SecureVec::from_vec(password);
-        let seed_phrase_str = SecureString::from_utf8(seed_phrase)
-            .map_err(|e| format!("Invalid UTF-8: {}", e))?;
+        let password = SecureString::from_utf8(password)?;
+        let seed_phrase_str = SecureString::from_utf8(seed_phrase)?;
 
         if password.is_empty() || password.is_uninitialized() {
             return Err("Password cannot be empty or uninitialized".to_string());
@@ -266,7 +265,7 @@ impl KeyVault {
             combined_entropy.extend(&mnemonic.to_entropy());
         }
 
-        let payload = utilities::encrypt(&password, &combined_entropy)?;
+        let payload = utilities::encrypt(password.as_ref(), &combined_entropy)?;
         db::set_encrypted_seed(payload).map_err(|e| e.to_string())?;
 
         // Store wallet info with SPHINCS+ variant
@@ -291,7 +290,7 @@ impl KeyVault {
     /// **Notes**:
     /// - The provided `password` buffer is cleared immediately after use.
     pub fn export_seed_phrase(&self, password: Vec<u8>) -> Result<Vec<u8>, String> {
-        let password = SecureVec::from_vec(password);
+        let password = SecureString::from_utf8(password)?;
 
         if password.is_empty() || password.is_uninitialized() {
             return Err("Password cannot be empty or uninitialized".to_string());
@@ -301,7 +300,7 @@ impl KeyVault {
             .map_err(|e| e.to_string())?
             .ok_or_else(|| "Master seed not found".to_string())?;
 
-        let entropy = utilities::decrypt(&password, payload)?;
+        let entropy = utilities::decrypt(password.as_ref(), payload)?;
         let size = self.variant.required_entropy_size_component();
         let chunks = entropy.chunks(size);
 
@@ -335,7 +334,7 @@ impl KeyVault {
         lock_args: String,
         message: Vec<u8>,
     ) -> Result<Vec<u8>, String> {
-        let password = SecureVec::from_vec(password);
+        let password = SecureString::from_utf8(password)?;
 
         if password.is_empty() || password.is_uninitialized() {
             return Err("Password cannot be empty or uninitialized".to_string());
@@ -345,7 +344,7 @@ impl KeyVault {
             .map_err(|e| e.to_string())?
             .ok_or_else(|| "Account not found".to_string())?;
 
-        let pri_key = utilities::decrypt(&password, account.pri_enc)?;
+        let pri_key = utilities::decrypt(password.as_ref(), account.pri_enc)?;
 
         match self.variant {
             SpxVariant::Sha2128S => spx_sign!(slh_dsa_sha2_128s, pri_key, &message, self.variant),
@@ -381,7 +380,7 @@ impl KeyVault {
         start_index: u32,
         count: u32,
     ) -> Result<Vec<String>, String> {
-        let password = SecureVec::from_vec(password);
+        let password = SecureString::from_utf8(password)?;
 
         if password.is_empty() || password.is_uninitialized() {
             return Err("Password cannot be empty or uninitialized".to_string());
@@ -391,7 +390,7 @@ impl KeyVault {
         let payload = db::get_encrypted_seed()
             .map_err(|e| e.to_string())?
             .ok_or_else(|| "Master seed not found".to_string())?;
-        let seed = utilities::decrypt(&password, payload)?;
+        let seed = utilities::decrypt(password.as_ref(), payload)?;
         let mut lock_args_array: Vec<String> = Vec::new();
         for index in start_index..(start_index + count) {
             let (pub_key, _) = self
@@ -421,7 +420,7 @@ impl KeyVault {
         password: Vec<u8>,
         count: u32,
     ) -> Result<Vec<String>, String> {
-        let password = SecureVec::from_vec(password);
+        let password = SecureString::from_utf8(password)?;
 
         if password.is_empty() || password.is_uninitialized() {
             return Err("Password cannot be empty or uninitialized".to_string());
@@ -432,7 +431,7 @@ impl KeyVault {
             .map_err(|e| e.to_string())?
             .ok_or_else(|| "Master seed not found".to_string())?;
         let mut lock_args_array: Vec<String> = Vec::new();
-        let seed = utilities::decrypt(&password, payload)?;
+        let seed = utilities::decrypt(password.as_ref(), payload)?;
         for index in 0..count {
             let (pub_key, pri_key) = self
                 .derive_spx_keys(&seed, index)
@@ -440,7 +439,7 @@ impl KeyVault {
 
             // Calculate lock script args and encrypt corresponding private key
             let lock_script_args = self.get_lock_scrip_arg(&pub_key);
-            let encrypted_pri = utilities::encrypt(&password, &pri_key)?;
+            let encrypted_pri = utilities::encrypt(password.as_ref(), &pri_key)?;
             // Store to DB
             let account = SphincsPlusAccount {
                 index: 0, // Init to 0; Will be set correctly in add_account
@@ -520,14 +519,11 @@ impl Util {
     /// **Notes**:
     /// - The provided `password` buffer is cleared immediately after use.
     pub fn password_checker(password: Vec<u8>) -> Result<u32, String> {
-        let password = SecureVec::from_vec(password);
+        let password = SecureString::from_utf8(password)?;
 
         if password.is_empty() || password.is_uninitialized() {
             return Err("Password cannot be empty or uninitialized".to_string());
         }
-
-        let password_str =
-            std::str::from_utf8(&password).map_err(|e| e.to_string())?;
 
         let mut has_space = false;
         let mut has_lowercase = false;
@@ -538,7 +534,7 @@ impl Util {
         let mut has_consecutive_repeats = false;
         let mut prev_char: Option<char> = None;
 
-        for c in password_str.chars() {
+        for c in password.chars() {
             if let Some(prev) = prev_char {
                 if c == prev {
                     has_consecutive_repeats = true;
@@ -576,7 +572,7 @@ impl Util {
         if !has_punctuation {
             return Err("Password must contain at least one symbol!".to_string());
         }
-        if password_str.len() < 20 {
+        if password.len() < 20 {
             return Err("Password must contain at least 20 characters!".to_string());
         }
 
@@ -602,7 +598,7 @@ impl Util {
             size
         };
 
-        let entropy = (password_str.len() as f64) * (character_set_size as f64).log2();
+        let entropy = (password.len() as f64) * (character_set_size as f64).log2();
         let rounded_entropy = entropy.round() as u32;
         Ok(rounded_entropy)
     }

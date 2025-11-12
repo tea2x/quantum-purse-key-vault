@@ -13,10 +13,14 @@ impl SecureString {
         SecureString(String::new())
     }
 
-    pub fn from_utf8(bytes: Vec<u8>) -> Result<Self, std::string::FromUtf8Error> {
+    pub fn from_utf8(bytes: Vec<u8>) -> Result<Self, String> {
         match String::from_utf8(bytes) {
             Ok(s) => Ok(SecureString(s)),
-            Err(e) => Err(e),
+            Err(e) => {
+                let mut leaked_handle = e.into_bytes();
+                leaked_handle.zeroize();
+                Err("Invalid UTF-8 input".to_string())
+            },
         }
     }
 
