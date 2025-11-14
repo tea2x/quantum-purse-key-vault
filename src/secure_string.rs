@@ -4,6 +4,7 @@
 
 use std::ops::{Deref, /*DerefMut*/};
 use zeroize::Zeroize;
+use web_sys::js_sys::Uint8Array;
 
 #[derive(Debug)]
 pub struct SecureString(String);
@@ -13,10 +14,15 @@ impl SecureString {
         SecureString(String::new())
     }
 
-    pub fn from_utf8(bytes: Vec<u8>) -> Result<Self, std::string::FromUtf8Error> {
+    pub fn from_uint8array(input: &Uint8Array) -> Result<Self, String> {
+        let bytes = input.to_vec();
         match String::from_utf8(bytes) {
             Ok(s) => Ok(SecureString(s)),
-            Err(e) => Err(e),
+            Err(e) => {
+                let mut leaked_handle = e.into_bytes();
+                leaked_handle.zeroize();
+                Err("Invalid UTF-8 input".to_string())
+            }
         }
     }
 

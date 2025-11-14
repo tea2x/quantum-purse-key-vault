@@ -17,16 +17,12 @@ impl SecureVec {
         SecureVec(vec![0u8; len])
     }
 
-    pub fn from_slice(slice: &[u8]) -> Self {
-      SecureVec(slice.to_vec())
+    pub fn from_vec(vec: Vec<u8>) -> Self {
+        SecureVec(vec)
     }
 
     pub fn extend(&mut self, slice: &[u8]) {
         self.0.extend_from_slice(slice);
-    }
-
-    pub fn is_uninitialized(&self) -> bool {
-        self.0.iter().all(|&byte| byte == 0)
     }
 }
 
