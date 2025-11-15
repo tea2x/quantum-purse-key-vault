@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 use quantum_purse_key_vault::{types::SpxVariant, KeyVault, Util};
 use rpassword::read_password;
+use zeroize::Zeroize;
 use std::fs;
 use std::io::{self, Write};
 
@@ -65,8 +66,6 @@ enum Commands {
     },
     /// Clear all wallet data
     Clear,
-    /// Check password strength
-    CheckPassword,
     /// Display wallet information
     Info,
     /// Get CKB transaction message hash from mock transaction
@@ -95,11 +94,11 @@ fn parse_variant(variant_str: &str) -> Result<SpxVariant, String> {
     }
 }
 
-fn read_hidden_input(prompt: &str) -> Result<Vec<u8>, String> {
+fn promt_for_input(prompt: &str) -> Result<String, String> {
     print!("{}", prompt);
     io::stdout().flush().map_err(|e| e.to_string())?;
     let input = read_password().map_err(|e| e.to_string())?;
-    Ok(input.into_bytes())
+    Ok(input)
 }
 
 fn main() -> Result<(), String> {
@@ -113,17 +112,23 @@ fn main() -> Result<(), String> {
             println!("Initializing wallet with variant: {}", variant);
             println!("Required mnemonic words: {}", variant.required_bip39_size_in_word_total());
 
-            let password = read_hidden_input("Enter password: ")?;
-            let confirm = read_hidden_input("Confirm password: ")?;
+            let mut password = promt_for_input("Enter password: ")?.into_bytes();
 
+            let mut confirm = promt_for_input("Confirm password: ")?.into_bytes();
             if password != confirm {
+                password.zeroize();
+                confirm.zeroize();
                 return Err("Passwords do not match".to_string());
             }
+            confirm.zeroize();
 
-            // Check password strength
             match Util::password_checker(password.clone()) {
                 Ok(strength) => println!("Password strength: {} bits", strength),
-                Err(e) => return Err(format!("Password validation failed: {}", e)),
+                Err(e) => {
+                    password.zeroize();
+                    confirm.zeroize();
+                    return Err(format!("Password validation failed: {}", e))
+                },
             }
 
             vault.generate_master_seed(password)?;
@@ -135,24 +140,31 @@ fn main() -> Result<(), String> {
             let variant = parse_variant(&variant)?;
             let vault = KeyVault::new(variant);
 
-            let seed_phrase = if let Some(file_path) = seed_file {
+            let mut seed_phrase = if let Some(file_path) = seed_file {
                 fs::read_to_string(file_path).map_err(|e| e.to_string())?
             } else {
-                String::from_utf8(read_hidden_input("Enter seed phrase: ")?)
-                    .map_err(|e| e.to_string())?
+                promt_for_input("Enter seed phrase: ")?
             };
 
-            let password = read_hidden_input("Enter password: ")?;
-            let confirm = read_hidden_input("Confirm password: ")?;
+            let mut password = promt_for_input("Enter password: ")?.into_bytes();
 
+            let mut confirm = promt_for_input("Confirm password: ")?.into_bytes();
             if password != confirm {
+                password.zeroize();
+                confirm.zeroize();
+                seed_phrase.zeroize();
                 return Err("Passwords do not match".to_string());
             }
+            confirm.zeroize();
 
-            // Check password strength
             match Util::password_checker(password.clone()) {
                 Ok(strength) => println!("Password strength: {} bits", strength),
-                Err(e) => return Err(format!("Password validation failed: {}", e)),
+                Err(e) => {
+                    password.zeroize();
+                    confirm.zeroize();
+                    seed_phrase.zeroize();
+                    return Err(format!("Password validation failed: {}", e))
+                },
             }
 
             vault.import_seed_phrase(seed_phrase.into_bytes(), password)?;
@@ -163,9 +175,9 @@ fn main() -> Result<(), String> {
             let variant = KeyVault::get_spx_variant()?;
             let vault = KeyVault::new(variant);
 
-            let password = read_hidden_input("Enter password: ")?;
+            let password = promt_for_input("Enter password: ")?.into_bytes();
             let seed_phrase = vault.export_seed_phrase(password)?;
-            let seed_str = String::from_utf8(seed_phrase).map_err(|e| e.to_string())?;
+            let mut seed_str = String::from_utf8(seed_phrase).map_err(|e| e.to_string())?;
 
             if let Some(output_path) = output {
                 fs::write(output_path, &seed_str).map_err(|e| e.to_string())?;
@@ -174,13 +186,14 @@ fn main() -> Result<(), String> {
                 println!("Seed phrase:");
                 println!("{}", seed_str);
             }
+            seed_str.zeroize();
         }
 
         Commands::NewAccount => {
             let variant = KeyVault::get_spx_variant()?;
             let vault = KeyVault::new(variant);
 
-            let password = read_hidden_input("Enter password: ")?;
+            let password = promt_for_input("Enter password: ")?.into_bytes();
             let lock_args = vault.gen_new_account(password)?;
             println!("✓ New account created");
             println!("Lock args: {}", lock_args);
@@ -206,7 +219,7 @@ fn main() -> Result<(), String> {
             let vault = KeyVault::new(variant);
 
             let message_bytes = hex::decode(&message).map_err(|e| e.to_string())?;
-            let password = read_hidden_input("Enter password: ")?;
+            let password = promt_for_input("Enter password: ")?.into_bytes();
 
             let signature = vault.sign(password, lock_args, message_bytes)?;
             println!("Signature: {}", hex::encode(signature));
@@ -216,7 +229,7 @@ fn main() -> Result<(), String> {
             let variant = KeyVault::get_spx_variant()?;
             let vault = KeyVault::new(variant);
 
-            let password = read_hidden_input("Enter password: ")?;
+            let password = promt_for_input("Enter password: ")?.into_bytes();
             let accounts = vault.recover_accounts(password, count)?;
 
             println!("✓ Recovered {} accounts:", accounts.len());
@@ -232,7 +245,7 @@ fn main() -> Result<(), String> {
             let variant = KeyVault::get_spx_variant()?;
             let vault = KeyVault::new(variant);
 
-            let password = read_hidden_input("Enter password: ")?;
+            let password = promt_for_input("Enter password: ")?.into_bytes();
             let accounts = vault.try_gen_account_batch(password, start, count)?;
 
             println!("Generated {} lock args:", accounts.len());
@@ -253,17 +266,6 @@ fn main() -> Result<(), String> {
                 println!("✓ All wallet data cleared");
             } else {
                 println!("Operation cancelled");
-            }
-        }
-
-        Commands::CheckPassword => {
-            let password = read_hidden_input("Enter password to check: ")?;
-            match Util::password_checker(password) {
-                Ok(strength) => {
-                    println!("✓ Password is valid");
-                    println!("Strength: {} bits", strength);
-                }
-                Err(e) => println!("✗ {}", e),
             }
         }
 

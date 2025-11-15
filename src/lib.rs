@@ -100,7 +100,7 @@ impl KeyVault {
     pub fn get_spx_variant() -> Result<SpxVariant, String> {
         let wallet_info = db::get_wallet_info()
             .map_err(|e| e.to_string())?
-            .ok_or_else(|| "Wallet not initialized. Run 'init' or 'import' first.".to_string())?;
+            .ok_or_else(|| "Wallet not initialized. Run 'init' or 'import-mnemonic' first.".to_string())?;
         Ok(wallet_info.spx_variant)
     }
 
