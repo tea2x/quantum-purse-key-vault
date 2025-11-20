@@ -40,7 +40,8 @@ pub fn derive_scrypt_key(
     param: &ScryptParam,
 ) -> Result<SecureVec, String> {
     let mut scrypt_key = SecureVec::new_with_length(param.len);
-    let scrypt_param = Params::new(param.log_n, param.r, param.p, param.len).unwrap();
+    let scrypt_param = Params::new(param.log_n, param.r, param.p, param.len)
+        .map_err(|e| format!("Scrypt params error: {:?}", e))?;
     scrypt(input, &salt, &scrypt_param, &mut scrypt_key)
         .map_err(|e| format!("Scrypt error: {:?}", e))?;
     Ok(scrypt_key)
