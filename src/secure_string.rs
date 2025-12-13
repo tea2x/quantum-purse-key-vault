@@ -16,8 +16,13 @@ impl SecureString {
 
     /// Consumes and zeroizes the input
     pub fn from_uint8array(input: Uint8Array) -> Result<Self, String> {
-        let bytes = input.to_vec();
-        input.fill(0, 0, input.length());
+        /// Exception safety, if panics could happen in to_vec().
+        struct ZeroOnDrop(Uint8Array);
+        impl Drop for ZeroOnDrop {
+            fn drop(&mut self) { self.0.fill(0, 0, self.0.length()); }
+        }
+        let input_guard = ZeroOnDrop(input);
+        let bytes = input_guard.0.to_vec();
         
         match String::from_utf8(bytes) {
             Ok(s) => Ok(SecureString(s)),
