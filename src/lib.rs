@@ -182,9 +182,8 @@ impl KeyVault {
     /// - The provided `js_password` buffer is cleared immediately after use.
     #[wasm_bindgen]
     pub async fn generate_master_seed(&self, js_password: Uint8Array) -> Result<(), JsValue> {
-        let password = SecureString::from_uint8array(&js_password)
+        let password = SecureString::from_uint8array(js_password)
             .map_err(|e| JsValue::from_str(&e))?;
-        js_password.fill(0, 0, js_password.length());
 
         if password.is_empty() || password.is_uninitialized() {
             return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
@@ -221,9 +220,8 @@ impl KeyVault {
     /// - The provided `js_password` buffer is cleared immediately after use.
     #[wasm_bindgen]
     pub async fn gen_new_account(&self, js_password: Uint8Array) -> Result<String, JsValue> {
-        let password = SecureString::from_uint8array(&js_password)
+        let password = SecureString::from_uint8array(js_password)
             .map_err(|e| JsValue::from_str(&e))?;
-        js_password.fill(0, 0, js_password.length());
 
         if password.is_empty() || password.is_uninitialized() {
             return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
@@ -279,13 +277,11 @@ impl KeyVault {
         js_seed_phrase: Uint8Array,
         js_password: Uint8Array,
     ) -> Result<(), JsValue> {
-        let password = SecureString::from_uint8array(&js_password)
+        let password = SecureString::from_uint8array(js_password)
             .map_err(|e| JsValue::from_str(&e))?;
-        js_password.fill(0, 0, js_password.length());
 
-        let seed_phrase_str = SecureString::from_uint8array(&js_seed_phrase)
+        let seed_phrase_str = SecureString::from_uint8array(js_seed_phrase)
             .map_err(|e| JsValue::from_str(&e))?;
-        js_seed_phrase.fill(0, 0, js_seed_phrase.length());
 
         if password.is_empty() || password.is_uninitialized() {
             return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
@@ -348,9 +344,8 @@ impl KeyVault {
     /// - The provided `js_password` buffer is cleared immediately after use.
     #[wasm_bindgen]
     pub async fn export_seed_phrase(&self, js_password: Uint8Array) -> Result<Uint8Array, JsValue> {
-        let password = SecureString::from_uint8array(&js_password)
+        let password = SecureString::from_uint8array(js_password)
             .map_err(|e| JsValue::from_str(&e))?;
-        js_password.fill(0, 0, js_password.length());
 
         if password.is_empty() || password.is_uninitialized() {
             return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
@@ -399,9 +394,8 @@ impl KeyVault {
         lock_args: String,
         message: Uint8Array,
     ) -> Result<Uint8Array, JsValue> {
-        let password = SecureString::from_uint8array(&js_password)
+        let password = SecureString::from_uint8array(js_password)
             .map_err(|e| JsValue::from_str(&e))?;
-        js_password.fill(0, 0, js_password.length());
 
         if password.is_empty() || password.is_uninitialized() {
             return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
@@ -453,9 +447,8 @@ impl KeyVault {
         start_index: u32,
         count: u32,
     ) -> Result<Vec<String>, JsValue> {
-        let password = SecureString::from_uint8array(&js_password)
+        let password = SecureString::from_uint8array(js_password)
             .map_err(|e| JsValue::from_str(&e))?;
-        js_password.fill(0, 0, js_password.length());
 
         if password.is_empty() || password.is_uninitialized() {
             return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
@@ -499,9 +492,8 @@ impl KeyVault {
         js_password: Uint8Array,
         count: u32,
     ) -> Result<Vec<String>, JsValue> {
-        let password = SecureString::from_uint8array(&js_password)
+        let password = SecureString::from_uint8array(js_password)
             .map_err(|e| JsValue::from_str(&e))?;
-        js_password.fill(0, 0, js_password.length());
 
         if password.is_empty() || password.is_uninitialized() {
             return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
@@ -611,9 +603,8 @@ impl Util {
     /// - The provided `js_password` buffer is cleared immediately after use.
     #[wasm_bindgen]
     pub fn password_checker(js_password: Uint8Array) -> Result<u32, JsValue> {
-        let password = SecureString::from_uint8array(&js_password)
+        let password = SecureString::from_uint8array(js_password)
             .map_err(|e| JsValue::from_str(&e))?;
-        js_password.fill(0, 0, js_password.length());
 
         if password.is_empty() || password.is_uninitialized() {
             return Err(JsValue::from_str("Password cannot be empty or uninitialized"));

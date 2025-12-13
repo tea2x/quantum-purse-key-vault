@@ -14,8 +14,11 @@ impl SecureString {
         SecureString(String::new())
     }
 
-    pub fn from_uint8array(input: &Uint8Array) -> Result<Self, String> {
+    /// Consumes and zeroizes the input
+    pub fn from_uint8array(input: Uint8Array) -> Result<Self, String> {
         let bytes = input.to_vec();
+        input.fill(0, 0, input.length());
+        
         match String::from_utf8(bytes) {
             Ok(s) => Ok(SecureString(s)),
             Err(e) => {
