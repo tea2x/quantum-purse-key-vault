@@ -19,10 +19,12 @@ impl SecureString {
         /// Exception safety, if panics could happen in to_vec().
         struct ZeroOnDrop(Uint8Array);
         impl Drop for ZeroOnDrop {
-            fn drop(&mut self) { self.0.fill(0, 0, self.0.length()); }
+            fn drop(&mut self) {
+                self.0.fill(0, 0, self.0.length());
+            }
         }
-        let input_guard = ZeroOnDrop(input);
-        let bytes = input_guard.0.to_vec();
+        let secure_input = ZeroOnDrop(input);
+        let bytes = secure_input.0.to_vec();
         
         match String::from_utf8(bytes) {
             Ok(s) => Ok(SecureString(s)),
