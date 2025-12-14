@@ -40,7 +40,8 @@ pub fn derive_scrypt_key(
     param: &ScryptParam,
 ) -> Result<SecureVec, String> {
     let mut scrypt_key = SecureVec::new_with_length(param.len);
-    let scrypt_param = Params::new(param.log_n, param.r, param.p, param.len).unwrap();
+    let scrypt_param = Params::new(param.log_n, param.r, param.p, param.len)
+        .map_err(|e| format!("Scrypt params error: {:?}", e))?;
     scrypt(input, &salt, &scrypt_param, &mut scrypt_key)
         .map_err(|e| format!("Scrypt error: {:?}", e))?;
     Ok(scrypt_key)
@@ -99,7 +100,7 @@ pub fn decrypt(password: &[u8], payload: CipherPayload) -> Result<SecureVec, Str
     let cipher = Aes256Gcm::new(aes_key);
     let nonce = Nonce::from_slice(&iv);
 
-    let mut secure_decipher = SecureVec::from_slice(&cipher_text);
+    let mut secure_decipher = SecureVec::from_vec(cipher_text);
     cipher.decrypt_in_place(&nonce, b"", &mut secure_decipher)
         .map_err(|e| format!("Decryption error: {:?}", e))?;
     Ok(secure_decipher)
