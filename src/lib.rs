@@ -17,10 +17,6 @@ use fips205::{
     *,
 };
 use hex::encode;
-use indexed_db_futures::{
-    error::Error as DBError, iter::ArrayMapIter, prelude::*, transaction::TransactionMode,
-};
-use serde_wasm_bindgen;
 use wasm_bindgen::{prelude::*, JsValue};
 use web_sys::js_sys::Uint8Array;
 
@@ -33,7 +29,7 @@ mod types;
 mod utilities;
 
 use crate::constants::{
-    CHILD_KEYS_STORE, KDF_PATH_PREFIX, MASTER_SEED_STORE, MULTISIG_RESERVED_FIELD_VALUE,
+    KDF_PATH_PREFIX, MULTISIG_RESERVED_FIELD_VALUE,
     PUBKEY_NUM, REQUIRED_FIRST_N, THRESHOLD,
 };
 use secure_vec::SecureVec;
@@ -100,13 +96,7 @@ impl KeyVault {
     /// **Async**: Yes
     #[wasm_bindgen]
     pub async fn clear_database() -> Result<(), JsValue> {
-        let db = db::open_db().await.map_err(|e| e.to_jsvalue())?;
-        db::clear_object_store(&db, MASTER_SEED_STORE)
-            .await
-            .map_err(|e| e.to_jsvalue())?;
-        db::clear_object_store(&db, CHILD_KEYS_STORE)
-            .await
-            .map_err(|e| e.to_jsvalue())?;
+        db::clear_all_stores().await.map_err(|e| e.to_jsvalue())?;
         Ok(())
     }
 
@@ -119,38 +109,7 @@ impl KeyVault {
     /// **Async**: Yes
     #[wasm_bindgen]
     pub async fn get_all_sphincs_lock_args() -> Result<Vec<String>, JsValue> {
-        /// Error conversion helper
-        fn map_db_error<T>(result: Result<T, DBError>) -> Result<T, JsValue> {
-            result.map_err(|e| JsValue::from_str(&format!("Database error: {}", e)))
-        }
-
-        let db = db::open_db().await.map_err(|e| e.to_jsvalue())?;
-        let tx = map_db_error(
-            db.transaction(CHILD_KEYS_STORE)
-                .with_mode(TransactionMode::Readonly)
-                .build(),
-        )?;
-        let store = map_db_error(tx.object_store(CHILD_KEYS_STORE))?;
-
-        // Retrieve all accounts
-        let iter: ArrayMapIter<JsValue> = map_db_error(store.get_all().await)?;
-        let mut accounts: Vec<SphincsPlusAccount> = Vec::new();
-        for result in iter {
-            let js_value = map_db_error(result)?;
-            let account: SphincsPlusAccount = serde_wasm_bindgen::from_value(js_value)?;
-            accounts.push(account);
-        }
-
-        // Sort by index
-        accounts.sort_by_key(|account| account.index);
-
-        // Extract lock args in sorted order
-        let lock_args_array: Vec<String> = accounts
-            .into_iter()
-            .map(|account| account.lock_args)
-            .collect();
-
-        Ok(lock_args_array)
+        db::get_all_lock_args().await.map_err(|e| e.to_jsvalue())
     }
 
     /// Check if there's a master seed stored in the indexDB.

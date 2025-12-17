@@ -4,8 +4,9 @@ use super::types::{CipherPayload, SphincsPlusAccount};
 use crate::constants::{CHILD_KEYS_STORE, DB_NAME, MASTER_SEED_KEY, MASTER_SEED_STORE};
 use errors::KeyVaultDBError;
 use indexed_db_futures::{
-    database::Database, prelude::*, transaction::TransactionMode,
+    database::Database, prelude::*, transaction::TransactionMode, iter::ArrayMapIter
 };
+use wasm_bindgen::{JsValue};
 
 /// Opens the IndexedDB database, creating object stores if necessary.
 ///
@@ -136,6 +137,55 @@ pub async fn get_account(lock_args: &str) -> Result<Option<SphincsPlusAccount>, 
     } else {
         Ok(None)
     }
+}
+
+/// Clears all data in the `master_seed_store` and `child_keys_store` in IndexedDB.
+///
+/// **Returns**:
+/// - `Result<(), KeyVaultDBError>` - Ok on success, or an error if the operation fails.
+///
+/// **Async**: Yes
+pub async fn clear_all_stores() -> Result<(), KeyVaultDBError> {
+    let db = open_db().await?;
+    clear_object_store(&db, MASTER_SEED_STORE).await?;
+    clear_object_store(&db, CHILD_KEYS_STORE).await?;
+    Ok(())
+}
+
+/// Retrieves all accounts' lock script arguments from the database in the order they were inserted.
+///
+/// **Returns**:
+/// - `Result<Vec<String>, KeyVaultDBError>` - A vector of hex-encoded SPHINCS+ lock script arguments on success,
+///   or an error if retrieval fails.
+///
+/// **Async**: Yes
+pub async fn get_all_lock_args() -> Result<Vec<String>, KeyVaultDBError> {
+    let db = open_db().await?;
+    let tx = db
+        .transaction(CHILD_KEYS_STORE)
+        .with_mode(TransactionMode::Readonly)
+        .build()?;
+    let store = tx.object_store(CHILD_KEYS_STORE)?;
+
+    // Retrieve all accounts
+    let iter: ArrayMapIter<JsValue> = store.get_all().await?;
+    let mut accounts: Vec<SphincsPlusAccount> = Vec::new();
+    for result in iter {
+        let js_value = result?;
+        let account: SphincsPlusAccount = serde_wasm_bindgen::from_value(js_value)?;
+        accounts.push(account);
+    }
+
+    // Sort by index
+    accounts.sort_by_key(|account| account.index);
+
+    // Extract lock args in sorted order
+    let lock_args_array: Vec<String> = accounts
+        .into_iter()
+        .map(|account| account.lock_args)
+        .collect();
+
+    Ok(lock_args_array)
 }
 
 /// Clears a specific object store in the database.
