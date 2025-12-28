@@ -34,7 +34,7 @@ pub async fn open_db() -> Result<Database, KeyVaultDBError> {
         .map_err(|e| KeyVaultDBError::DatabaseError(format!("Failed to open IndexedDB: {}", e)))
 }
 
-/// Stores the encrypted master seed in the database.
+/// Stores the encrypted master seed in the indexed DB.
 ///
 /// **Parameters**:
 /// - `payload: CipherPayload` - The encrypted master seed data to store.
@@ -44,7 +44,7 @@ pub async fn open_db() -> Result<Database, KeyVaultDBError> {
 ///
 /// **Async**: Yes
 ///
-/// **Warning**: This method overwrites the existing master seed in the database.
+/// **Warning**: This method overwrites the existing master seed in the indexed DB.
 pub async fn set_encrypted_seed(payload: CipherPayload) -> Result<(), KeyVaultDBError> {
     let db = open_db().await?;
     let tx = db
@@ -59,7 +59,7 @@ pub async fn set_encrypted_seed(payload: CipherPayload) -> Result<(), KeyVaultDB
     Ok(())
 }
 
-/// Retrieves the encrypted masterseed from the database.
+/// Retrieves the encrypted masterseed from the indexed DB.
 ///
 /// **Returns**:
 /// - `Result<Option<CipherPayload>, KeyVaultDBError>` - The encrypted master seed if it exists, `None` if not found, or an error if retrieval fails.
@@ -85,7 +85,7 @@ pub async fn get_encrypted_seed() -> Result<Option<CipherPayload>, KeyVaultDBErr
     }
 }
 
-/// Stores a SPHINCS+ account to the database.
+/// Stores a SPHINCS+ account to the indexed DB.
 ///
 /// **Parameters**:
 /// - `account: SphincsPlusAccount` - The SPHINCS+ account to store.
@@ -110,7 +110,7 @@ pub async fn add_account(mut account: SphincsPlusAccount) -> Result<(), KeyVault
     Ok(())
 }
 
-/// Retrieves a child account by its public key from the database.
+/// Retrieves a child account by its public Lock Script arguments from the indexed DB.
 ///
 /// **Parameters**:
 /// - `lock_args: &str` - The hex-encoded lock script's arguments corresponding to the SPHINCS+ public key of the retrieved child account.
@@ -152,7 +152,7 @@ pub async fn clear_all_stores() -> Result<(), KeyVaultDBError> {
     Ok(())
 }
 
-/// Retrieves all accounts' lock script arguments from the database in the order they were inserted.
+/// Retrieves all accounts' lock script arguments from the indexed DB in the order they were inserted.
 ///
 /// **Returns**:
 /// - `Result<Vec<String>, KeyVaultDBError>` - A vector of hex-encoded SPHINCS+ lock script arguments on success,
@@ -188,10 +188,10 @@ pub async fn get_all_lock_args() -> Result<Vec<String>, KeyVaultDBError> {
     Ok(lock_args_array)
 }
 
-/// Clears a specific object store in the database.
+/// Clears a specific object store in the indexed DB.
 ///
 /// **Parameters**:
-/// - `db: &Database` - The database instance to operate on.
+/// - `db: &Database` - The indexed DB instance to operate on.
 /// - `store_name: &str` - The name of the object store to clear.
 ///
 /// **Returns**:

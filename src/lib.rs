@@ -164,7 +164,7 @@ impl KeyVault {
         Ok(())
     }
 
-    /// Generates a new SPHINCS+ account - a SPHINCS+ child account derived from the master seed, encrypts the private key with the password, and stores it in IndexedDB.
+    /// Generates a new SPHINCS+ account - a SPHINCS+ Lock Script arguments that can be intepreted to CKB quantum safe addresses.
     ///
     /// **Parameters**:
     /// - `js_password: Uint8Array` - The password used to decrypt the master seed and encrypt the child private key, input from js env.
@@ -194,19 +194,17 @@ impl KeyVault {
         let seed = utilities::decrypt(password.as_ref(), payload)?;
 
         let index = Self::get_all_sphincs_lock_args().await?.len() as u32;
-        let (pub_key, pri_key) = self
+        let (pub_key, _) = self
             .derive_spx_keys(&seed, index)
             .map_err(|e| JsValue::from_str(&format!("Key derivation error: {}", e)))?;
 
-        // Calculate lock script args and encrypt corresponding private key
+        // Calculate lock script args
         let lock_script_args = self.get_lock_scrip_arg(&pub_key);
-        let encrypted_pri = utilities::encrypt(password.as_ref(), &pri_key)?;
 
         // Store to DB
         let account = SphincsPlusAccount {
             index: 0, // Init to 0; Will be set correctly in add_account
             lock_args: encode(lock_script_args),
-            pri_enc: encrypted_pri,
         };
 
         db::add_account(account).await.map_err(|e| e.to_jsvalue())?;
@@ -365,7 +363,17 @@ impl KeyVault {
             .map_err(|e| e.to_jsvalue())?
             .ok_or_else(|| JsValue::from_str("Account not found"))?;
 
-        let pri_key = utilities::decrypt(password.as_ref(), account.pri_enc)?;
+        // Get and decrypt the master seed
+        let payload = db::get_encrypted_seed()
+            .await
+            .map_err(|e| e.to_jsvalue())?
+            .ok_or_else(|| JsValue::from_str("Master seed not found"))?;
+        let seed = utilities::decrypt(password.as_ref(), payload)?;
+
+        let (_, pri_key) = self
+            .derive_spx_keys(&seed, account.index)
+            .map_err(|e| JsValue::from_str(&format!("Key derivation error: {}", e)))?;
+
         let message_vec = message.to_vec();
 
         match self.variant {
@@ -432,7 +440,7 @@ impl KeyVault {
         Ok(lock_args_array)
     }
 
-    /// Supporting wallet recovery - Recovers the wallet by deriving and storing private keys for the first N accounts.
+    /// Supporting wallet recovery - Recovers the wallet by deriving and caching quantum-safe Lock Script arguments for the first N addresses.
     ///
     /// **Parameters**:
     /// - `js_password: Uint8Array` - The password used to decrypt the master seed, input from js env.
@@ -466,18 +474,16 @@ impl KeyVault {
         let mut lock_args_array: Vec<String> = Vec::new();
         let seed = utilities::decrypt(password.as_ref(), payload)?;
         for index in 0..count {
-            let (pub_key, pri_key) = self
+            let (pub_key, _) = self
                 .derive_spx_keys(&seed, index)
                 .map_err(|e| JsValue::from_str(&format!("Key derivation error: {}", e)))?;
 
-            // Calculate lock script args and encrypt corresponding private key
+            // Calculate lock script args
             let lock_script_args = self.get_lock_scrip_arg(&pub_key);
-            let encrypted_pri = utilities::encrypt(password.as_ref(), &pri_key)?;
             // Store to DB
             let account = SphincsPlusAccount {
                 index: 0, // Init to 0; Will be set correctly in add_account
                 lock_args: encode(lock_script_args),
-                pri_enc: encrypted_pri,
             };
             lock_args_array.push(encode(lock_script_args));
 
