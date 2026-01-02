@@ -30,8 +30,11 @@ SPHINCS+ offers 12 parameter sets, grouped by three security parameters: 128-bit
 - SHAKE-192s will require users to back up 54 words of mnemonic phrase.
 - SHA2-128f will require users to back up 36 words of mnemonic phrase.
 
-### Key Derivation
-Although "BIP32 hardened key derivation" doesn't involve with ECDSA and can fit in the arch of Quantum Purse but because Scrypt has been used already for the local encryption/decryption, I think using Scrypt-based KDF(Key Derivation Function) here will keep this wallet's dependency list minimum. That's why Quantum Purse uses a simple custom KDF based on Scrypt instead of the 'hardened option' from the standard BIP32.
+### Key Derivation Function
+
+Pure Hash-based KDF is the top choice for this project. Although using [BIP32](https://en.bitcoin.it/wiki/BIP_0032) carefully (with only hardened key derivation and never generate public keys) can satisfy but a fresh start with HKDF seems better because it's simpler - meaning the implementation will be easier to audit.
+
+Also For the KDF Hierachy structure, BIP44 is the top choice as it has existed for many years and may still be the widely for post-quantum wallets. BIP44 is not adopted entirely in this project because concept like astrophe for hardened BIP32 KDF is simply not meaningful in this project. 
 
 ###### Key Tree:
 ```
@@ -49,7 +52,7 @@ master_seed
      ▼
 (seed_part1, seed_part2, seed_part3)
      │
-     ├─ Scrypt("ckb/quantum-purse/sphincs-plus/", index)
+     ├─ HKDF("ckb/quantum-purse/sphincs-plus/", index)
      │
      ▼
 (sk_seed, sk_prf, pk_seed)

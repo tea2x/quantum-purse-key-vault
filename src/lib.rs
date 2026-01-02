@@ -2,9 +2,8 @@
 //!
 //! This module provides a secure password-based authentication interface for managing cryptographic keys in
 //! QuantumPurse project using WebAssembly. It leverages AES-GCM for encryption, Scrypt for key derivation & hashing,
-//! and the SPHINCS+ signature scheme for post-quantum transaction signing. Sensitive data, including
-//! root seed and derived SPHINCS+ private keys, is encrypted and stored in the browser via
-//! IndexedDB, with access authenticated by user-provided passwords.
+//! and the SPHINCS+ signature scheme for post-quantum transaction signing. The master seed is encrypted and stored in
+//! the browser IndexedDB, with access authenticated by user-provided passwords.
 
 use bip39::{Language, Mnemonic};
 use ckb_fips205_utils::{
@@ -164,7 +163,7 @@ impl KeyVault {
         Ok(())
     }
 
-    /// Generates a new SPHINCS+ account - a SPHINCS+ Lock Script arguments that can be intepreted to CKB quantum safe addresses.
+    /// Generates a new SPHINCS+ account - a SPHINCS+ Lock Script arguments that can be encoded to CKB quantum safe addresses at higher layers.
     ///
     /// **Parameters**:
     /// - `js_password: Uint8Array` - The password used to decrypt the master seed and encrypt the child private key, input from js env.

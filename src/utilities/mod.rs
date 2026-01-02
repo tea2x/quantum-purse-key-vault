@@ -8,6 +8,8 @@ use aes_gcm::{
 };
 use hex::{decode, encode};
 use scrypt::{scrypt, Params};
+use hkdf::Hkdf;
+use sha2::Sha256;
 #[cfg(test)]
 mod tests;
 
@@ -24,7 +26,7 @@ pub fn get_random_bytes(length: usize) -> Result<SecureVec, getrandom_v03::Error
     Ok(buffer)
 }
 
-/// This function is used for both hashing and key derivation.
+/// This function is used for password hashing.
 ///
 /// **Parameters**:
 /// - `input: &[u8]` - The input from which the scrypt key is derived.
@@ -45,6 +47,27 @@ pub fn derive_scrypt_key(
     scrypt(input, &salt, &scrypt_param, &mut scrypt_key)
         .map_err(|e| format!("Scrypt error: {:?}", e))?;
     Ok(scrypt_key)
+}
+
+/// Derives a key using HKDF-SHA256.
+///
+/// **Parameters**:
+/// - `ikm: &[u8]` - Input key material.
+/// - `info: &[u8]` - Optional context and application specific information.
+/// - `output_len: usize` - Desired output length in bytes.
+///
+/// **Returns**:
+/// - `Result<SecureVec, String>` - Derived key on success, or an error message on failure.
+pub fn derive_hkdf_key(
+    ikm: &[u8],
+    info: &[u8],
+    output_len: usize,
+) -> Result<SecureVec, String> {
+    let hkdf = Hkdf::<Sha256>::new(None, ikm);
+    let mut okm = SecureVec::new_with_length(output_len);
+    hkdf.expand(info, &mut okm)
+        .map_err(|e| format!("HKDF expansion error: {:?}", e))?;
+    Ok(okm)
 }
 
 /// Encrypts data using AES-GCM with a password-derived key.
