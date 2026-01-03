@@ -10,11 +10,11 @@ This module provides a secure authentication interface to manage FIPS205 (former
 | **Store model**       | Indexed DB           |
 | **Mnemonic standard** | Custom BIP39 English |
 | **Local encryption**  | AES256               |
-| **Key derivation**    | Scrypt               |
+| **Key derivation**    | HKDF                 |
 | **Authentication**    | Password             |
 | **Password hashing**  | Scrypt               |
 
-### Custom BIP39
+### Mnemonic backup format
 BIP39 is chosen as the mnemonic backup format due to its user-friendliness and quantum resistance.
 
 SPHINCS+ offers 12 parameter sets, grouped by three security parameters: 128-bit, 192-bit, and 256-bit. These require seeds of 48 bytes, 72 bytes, and 96 bytes respectively used across key generation and signing. As BIP39 supports max 32 bytes so this library introduces a custom(combined) BIP39 mnemonic backup format for each security parameter of SPHINCS+ as below:
@@ -32,9 +32,7 @@ SPHINCS+ offers 12 parameter sets, grouped by three security parameters: 128-bit
 
 ### Key Derivation Function
 
-Pure Hash-based KDF is the top choice for this project. Although using [BIP32](https://en.bitcoin.it/wiki/BIP_0032) carefully (with only hardened key derivation and never generate public keys) can satisfy but a fresh start with HKDF seems better because it's simpler - meaning the implementation will be easier to audit.
-
-Also For the KDF Hierachy structure, BIP44 is the top choice as it has existed for many years and may still be the widely for post-quantum wallets. BIP44 is not adopted entirely in this project because concept like astrophe for hardened BIP32 KDF is simply not meaningful in this project. 
+From the single master seed, quantum-purse-key-vault can derive many child keys using Key Derivation Function(KDF). Pure Hash-based KDF is the top choice for this project. Although using [BIP32](https://en.bitcoin.it/wiki/BIP_0032) carefully (with only hardened key derivation and never generate ECDSA public keys) can satisfy however the benefits of the tricky usage at this point(2025) is unclear. Thus, a fresh start with HKDF seems better because it's simpler - meaning the implementation will be easier to audit.
 
 ###### Key Tree:
 ```
@@ -70,9 +68,6 @@ master_seed
 
 ### Build
 ```shell
-# init submodule quantum-resistant-lockscript
-git submodule update --init
-
 # run build script
 ./build.sh
 

@@ -128,7 +128,7 @@ impl KeyVault {
     /// Throw if the master seed already exists.
     ///
     /// **Parameters**:
-    /// - `js_password: Uint8Array` - The password used to encrypt the generated master seed, input from js env.
+    /// - `js_password: Uint8Array` - The password used to encrypt the generated master seed, input from js env. Must not be empty or uninitialized.
     ///
     /// **Returns**:
     /// - `Result<(), JsValue>` - A JavaScript Promise that resolves to `undefined` on success,
@@ -166,7 +166,7 @@ impl KeyVault {
     /// Generates a new SPHINCS+ account - a SPHINCS+ Lock Script arguments that can be encoded to CKB quantum safe addresses at higher layers.
     ///
     /// **Parameters**:
-    /// - `js_password: Uint8Array` - The password used to decrypt the master seed and encrypt the child private key, input from js env.
+    /// - `js_password: Uint8Array` - The password used to decrypt the master seed and encrypt the child private key, input from js env. Must not be empty or uninitialized.
     ///
     /// **Returns**:
     /// - `Result<String, JsValue>` - A String Promise that resolves to the hex-encoded SPHINCS+ lock argument (processed SPHINCS+ public key) of the account on success,
@@ -217,7 +217,7 @@ impl KeyVault {
     /// **Parameters**:
     /// - `js_seed_phrase: Uint8Array` - The mnemonic phrase as a valid UTF-8 encoded Uint8Array to import, input from js env.
     ///    There're only 3 options accepted: 36, 54 or 72 words.
-    /// - `js_password: Uint8Array` - The password used to encrypt the translated master seed, input from js env.
+    /// - `js_password: Uint8Array` - The password used to encrypt the translated master seed, input from js env. Must not be empty or uninitialized.
     ///
     /// **Returns**:
     /// - `Result<(), JsValue>` - A JavaScript Promise that resolves to `undefined` on success,
@@ -284,7 +284,7 @@ impl KeyVault {
     /// Exports the master seed in the form of a custom bip39 mnemonic phrase. There're only 3 options: 36, 54 or 72 words.
     ///
     /// **Parameters**:
-    /// - `js_password: Uint8Array` - The password used to decrypt the master seed, input from js env.
+    /// - `js_password: Uint8Array` - The password used to decrypt the master seed, input from js env. Must not be empty or uninitialized.
     ///
     /// **Returns**:
     /// - `Result<Uint8Array, JsValue>` - A JavaScript Promise that resolves to the mnemonic as a UTF-8 encoded `Uint8Array` on success,
@@ -330,7 +330,7 @@ impl KeyVault {
     /// Sign and produce a valid signature for the Quantum Resistant lock script.
     ///
     /// **Parameters**:
-    /// - `js_password: Uint8Array` - The password used to decrypt the private key, input from js env.
+    /// - `js_password: Uint8Array` - The password used to decrypt the private key, input from js env. Must not be empty or uninitialized.
     /// - `lock_args: String` - The hex-encoded lock script's arguments corresponding to the SPHINCS+ public key of the account that signs.
     ///    This is a CKB specific thing, check https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0022-transaction-structure/script-p2.png for more information.
     /// - `message: Uint8Array` - The message to be signed.
@@ -394,7 +394,7 @@ impl KeyVault {
     /// Supporting wallet recovery - quickly derives a list of lock script arguments (processed public keys).
     ///
     /// **Parameters**:
-    /// - `js_password: Uint8Array` - The password used to decrypt the master seed used for account generation, input from js env.
+    /// - `js_password: Uint8Array` - The password used to decrypt the master seed used for account generation, input from js env. Must not be empty or uninitialized.
     /// - `start_index: u32` - The starting index for derivation.
     /// - `count: u32` - The number of sequential lock scripts arguments to derive.
     ///
@@ -442,7 +442,7 @@ impl KeyVault {
     /// Supporting wallet recovery - Recovers the wallet by deriving and caching quantum-safe Lock Script arguments for the first N addresses.
     ///
     /// **Parameters**:
-    /// - `js_password: Uint8Array` - The password used to decrypt the master seed, input from js env.
+    /// - `js_password: Uint8Array` - The password used to decrypt the master seed, input from js env. Must not be empty or uninitialized.
     /// - `count: u32` - The number of accounts to recover (from index 0 to count-1).
     ///
     /// **Returns**:
@@ -555,7 +555,7 @@ impl Util {
     /// By default will require at least 20 characters
     ///
     /// **Parameters**:
-    /// - `js_password: Uint8Array` - utf8 serialized password, input from js env.
+    /// - `js_password: Uint8Array` - utf8 serialized password, input from js env. Must not be empty or uninitialized.
     ///
     /// **Returns**:
     /// - `Result<u16, JsValue>` - The strength of the password measured in bit on success,
