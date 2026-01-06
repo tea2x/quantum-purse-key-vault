@@ -9,12 +9,23 @@ pub const MASTER_SEED_STORE: &str = "master_seed_store";
 pub const CHILD_KEYS_STORE: &str = "child_keys_store";
 pub const KDF_PATH_PREFIX: &str = "ckb/quantum-purse/sphincs-plus/";
 
-/// Scrypt’s original paper suggests N = 16384 (log_n = 14) for interactive logins, but that’s for low-entropy passwords.
-/// QuantumPurse requires passwords of at least 20 chars ~ 128 bit security together with the following scrypt param to protect data in DB.
-/// Security level for the encryption/decryption keys isn't upgraded with Scrypt, each attacker's guess simply gets longer to run.
-/// TODO: Consider scrypt parameters for security/performance
+/// Scrypt’s original paper suggests N = 16384 (log_n = 14) for interactive logins via low-entropy passwords.
+/// QuantumPurse requires passwords of at least 20 characters together with the following scrypt param to protect the master seed in DB.
+/// 
+/// Given NIST new security post-quantum standards:
+/// 1) Key search on a block cipher with a 128-bit key (e.g. AES128)
+/// 3) Key search on a block cipher with a 192-bit key (e.g. AES192)
+/// 5) Key search on a block cipher with a 256-bit key (e.g. AES 256)
+/// 
+/// 0                  128       192       256
+/// |---------|---------|---------|---------|
+///                         ▲
+///         current setup: 152
+/// 
+/// The security with this setup falls between 1) and 3).
+/// Note that this is theoretical because user's password often has lower entropy than expected.
 pub const ENC_SCRYPT: ScryptParam = ScryptParam {
-    log_n: 14,
+    log_n: 18,
     r: 8,
     p: 1,
     len: 32,
