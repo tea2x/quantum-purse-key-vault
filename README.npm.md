@@ -1,5 +1,10 @@
 ## Quantum Purse Key Vault
 
+> ⚠️ **BREAKING CHANGE in v0.3.0**: Key derivation has been updated from Scrypt to HKDF-SHA256.
+> Keys and addresses generated with v0.2.x will be **completely different** from v0.3.0+.
+> 
+> **If upgrading from v0.2.x**: See the project change log migration guide in the github repo.
+
 This module provides a secure authentication interface for managing SPHINCS+ cryptographic keys in Web application using Rust and WebAssembly.
 
 ## JS interface

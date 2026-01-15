@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Switched from Scrypt-based KDF to HKDF-SHA256 for child key derivation**
   - Child keys derived from the same master seed will produce completely different addresses
-  - **Migration Impact**: Users MUST migrate assets and reimport the wallet if wish to maintain the master seed.
+  - **Migration Impact**: Users MUST reimport the current mnemonic seed and migrate assets over new addresses if wish to maintain the master seed.
   - **Backward Incompatibility**: Cannot import mnemonics from v0.2.5 and expect same keys/addresses
 
 ### Changed
