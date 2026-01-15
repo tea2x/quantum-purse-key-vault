@@ -81,6 +81,25 @@ export class KeyVault {
    * 
    * **Notes**:
    * - The provided `js_password` buffer is cleared immediately after use.
+   * 
+   * Given NIST new security post-quantum standards categorized as:
+   * 1) Key search on a block cipher with a 128-bit key (e.g. AES128)
+   * 3) Key search on a block cipher with a 192-bit key (e.g. AES192)
+   * 5) Key search on a block cipher with a 256-bit key (e.g. AES 256)
+   * 
+   * First protection layer: For a symetrical encryption practice, the first protection effort SHOULD be the responsibitlity of 
+   * the higher layer impelementation (Quantum Purse Wallet or any other system using this library) to ensure that the encrypted data
+   * is never exposed. It is also the responsibility of the end-users to always lock their device carefully.
+   * 
+   * Second protection layer: Should the first protection layer fall in any situation, the encryption itself stands as the last
+   * resistance against quantum attacks. The passwords provided should be strong enough, so that breaking it requires comparable
+   * resouce to break the NIST category level 1), 3) and 5).
+   * 
+   * For a reference setup:
+   *  - Minimum required 20-character passwords. This puts us at ~128-bit of security in theory (less in reality because of human factors).
+   *  - Scrypt with param {log_n = 17, r = 8, p = 1, len 32} make each effort to guess a password even harder for the attacker. 
+   * 
+   * The theoretical security for this setup, thus starts at level 1) and is not upper limited following how long users passwords can be.
    */
   generate_master_seed(js_password: Uint8Array): Promise<void>;
   /**
@@ -116,6 +135,25 @@ export class KeyVault {
    *
    * **Notes**:
    * - The provided `js_password` and the js_seed_phrase buffers are cleared immediately after use.
+   * 
+   * Given NIST new security post-quantum standards categorized as:
+   * 1) Key search on a block cipher with a 128-bit key (e.g. AES128)
+   * 3) Key search on a block cipher with a 192-bit key (e.g. AES192)
+   * 5) Key search on a block cipher with a 256-bit key (e.g. AES 256)
+   * 
+   * First protection layer: For a symetrical encryption practice, the first protection effort SHOULD be the responsibitlity of 
+   * the higher layer impelementation (Quantum Purse Wallet or any other system using this library) to ensure that the encrypted data
+   * is never exposed. It is also the responsibility of the end-users to always lock their device carefully.
+   * 
+   * Second protection layer: Should the first protection layer fall in any situation, the encryption itself stands as the last
+   * resistance against quantum attacks. The passwords provided should be strong enough, so that breaking it requires comparable
+   * resouce to break the NIST category level 1), 3) and 5).
+   * 
+   * For a reference setup:
+   *  - Minimum required 20-character passwords. This puts us at ~128-bit of security in theory (less in reality because of human factors).
+   *  - Scrypt with param {log_n = 17, r = 8, p = 1, len 32} make each effort to guess a password even harder for the attacker. 
+   * 
+   * The theoretical security for this setup, thus starts at level 1) and is not upper limited following how long users passwords can be.
    */
   import_seed_phrase(js_seed_phrase: Uint8Array, js_password: Uint8Array): Promise<void>;
   /**
@@ -264,7 +302,7 @@ export interface InitOutput {
   readonly __wbindgen_export_4: WebAssembly.Table;
   readonly __wbindgen_export_5: WebAssembly.Table;
   readonly __externref_table_dealloc: (a: number) => void;
-  readonly closure89_externref_shim_multivalue_shim: (a: number, b: number, c: any) => [number, number];
+  readonly closure110_externref_shim_multivalue_shim: (a: number, b: number, c: any) => [number, number];
   readonly closure143_externref_shim: (a: number, b: number, c: any) => void;
   readonly closure166_externref_shim: (a: number, b: number, c: any) => void;
   readonly _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h6a08b498e20e740b: (a: number, b: number) => void;

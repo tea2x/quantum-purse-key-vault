@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Replaced Scrypt with HKDF-SHA256 for KDF
 - Removed child key caching; keys are now derived on-the-fly from the master seed
+- Increase Scrypt log_n param from 14 to 17 in password hashing
 - Extracted database operations to dedicated db layer
 
 ### Removed
