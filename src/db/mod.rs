@@ -8,6 +8,8 @@ use indexed_db_futures::{
 };
 use wasm_bindgen::{JsValue};
 
+const VERSION:u8 = 1;
+
 /// Opens the IndexedDB database, creating object stores if necessary.
 ///
 /// **Returns**:
@@ -16,18 +18,18 @@ use wasm_bindgen::{JsValue};
 /// **Async**: Yes
 pub async fn open_db() -> Result<Database, KeyVaultDBError> {
     Database::open(DB_NAME)
-        .with_version(1u8)
+        .with_version(VERSION)
         .with_on_blocked(|_event| Ok(()))
-        .with_on_upgrade_needed(|_event, db| {
-            if !db
-                .object_store_names()
-                .any(|name| name == MASTER_SEED_STORE)
-            {
+        .with_on_upgrade_needed(|event, db| {
+            let old_version = event.old_version() as u8;
+            
+            if old_version < 1 {
                 db.create_object_store(MASTER_SEED_STORE).build()?;
-            }
-            if !db.object_store_names().any(|name| name == CHILD_KEYS_STORE) {
                 db.create_object_store(CHILD_KEYS_STORE).build()?;
             }
+
+            // reserved for future upgrades
+
             Ok(())
         })
         .await
