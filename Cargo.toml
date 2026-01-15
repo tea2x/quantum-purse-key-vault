@@ -1,6 +1,6 @@
 [package]
 name = "quantum-purse-key-vault"
-version = "0.2.5"
+version = "0.3.0"
 edition = "2021"
 description = "A SPHINCS+ key management library for CKB blockchain."
 repository = "https://github.com/tea2x/quantum-purse-key-vault.git"
@@ -32,6 +32,8 @@ zeroize = "1.8.1"
 getrandom = { version = "0.2.15", features = ["js"] }
 getrandom_v03 = { package = "getrandom", version = "0.3.3", features = ["wasm_js"] }
 bip39 = { version = "2.2.0", features = ["zeroize"] }
+hkdf = "0.12.4"
+sha2 = "0.10.9"
 web-sys = { version = "0.3.77", features = ["console"] }
 indexed_db_futures = "0.6.4"
 serde = { version = "1.0.219", features = ["derive"] }

@@ -24,20 +24,18 @@ pub struct CipherPayload {
     pub cipher_text: String,
 }
 
-/// Represents a SPHINCS+ key pair with the lock script argument (processed public key) and an encrypted private key.
+/// Represents a SPHINCS+ account with the quantum safe Lock Script argument (processed public key).
 ///
 /// **Fields**:
 /// - `index: u32` - db addition order
 /// - `lock_args: String` - The lock script's argument calculated from the SPHINCS+ public key.
-/// - `pri_enc: CipherPayload` - Encrypted SPHINCS+ private key, stored as a `CipherPayload`.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SphincsPlusAccount {
     pub index: u32,
     pub lock_args: String,
-    pub pri_enc: CipherPayload,
 }
 
-/// ID of all 12 SPHINCS+ variants following https://github.com/cryptape/quantum-resistant-lock-script/pull/14
+/// ID of all 12 SPHINCS+ variants following https://github.com/cryptape/quantum-resistant-lock-script/
 #[wasm_bindgen]
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum SpxVariant {

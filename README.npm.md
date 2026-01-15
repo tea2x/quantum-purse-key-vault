@@ -1,5 +1,10 @@
 ## Quantum Purse Key Vault
 
+> ⚠️ **BREAKING CHANGE in v0.3.0**: Key derivation has been updated from Scrypt to HKDF-SHA256.
+> Keys and addresses generated with v0.2.x will be **completely different** from v0.3.0+.
+> 
+> **If upgrading from v0.2.x**: See the project change log migration guide in the github repo.
+
 This module provides a secure authentication interface for managing SPHINCS+ cryptographic keys in Web application using Rust and WebAssembly.
 
 ## JS interface
@@ -8,7 +13,7 @@ This module provides a secure authentication interface for managing SPHINCS+ cry
 /* tslint:disable */
 /* eslint-disable */
 /**
- * ID of all 12 SPHINCS+ variants following https://github.com/cryptape/quantum-resistant-lock-script/pull/14
+ * ID of all 12 SPHINCS+ variants following https://github.com/cryptape/quantum-resistant-lock-script/
  */
 export enum SpxVariant {
   Sha2128F = 48,
@@ -71,7 +76,7 @@ export class KeyVault {
    * Throw if the master seed already exists.
    *
    * **Parameters**:
-   * - `js_password: Uint8Array` - The password used to encrypt the generated master seed, input from js env.
+   * - `js_password: Uint8Array` - The password used to encrypt the generated master seed, input from js env. Must not be empty or uninitialized.
    *
    * **Returns**:
    * - `Result<(), JsValue>` - A JavaScript Promise that resolves to `undefined` on success,
@@ -80,15 +85,33 @@ export class KeyVault {
    * **Async**: Yes
    * 
    * **Notes**:
-   * - For security reasons, the provided `js_password` buffer is cleared immediately after it
-   *   has been copied into a secure container.
+   * - The provided `js_password` buffer is cleared immediately after use.
+   * 
+   * Given NIST new security post-quantum standards categorized as:
+   * 1) Key search on a block cipher with a 128-bit key (e.g. AES128)
+   * 3) Key search on a block cipher with a 192-bit key (e.g. AES192)
+   * 5) Key search on a block cipher with a 256-bit key (e.g. AES 256)
+   * 
+   * First protection layer: For a symetrical encryption practice, the first protection effort SHOULD be the responsibitlity of 
+   * the higher layer impelementation (Quantum Purse Wallet or any other system using this library) to ensure that the encrypted data
+   * is never exposed. It is also the responsibility of the end-users to always lock their device carefully.
+   * 
+   * Second protection layer: Should the first protection layer fall in any situation, the encryption itself stands as the last
+   * resistance against quantum attacks. The passwords provided should be strong enough, so that breaking it requires comparable
+   * resouce to break the NIST category level 1), 3) and 5).
+   * 
+   * For a reference setup:
+   *  - Minimum required 20-character passwords. This puts us at ~128-bit of security in theory (less in reality because of human factors).
+   *  - Scrypt with param {log_n = 17, r = 8, p = 1, len 32} make each effort to guess a password even harder for the attacker. 
+   * 
+   * The theoretical security for this setup, thus starts at level 1) and is not upper limited following how long users passwords can be.
    */
   generate_master_seed(js_password: Uint8Array): Promise<void>;
   /**
-   * Generates a new SPHINCS+ account - a SPHINCS+ child account derived from the master seed, encrypts the private key with the password, and stores it in IndexedDB.
+   * Generates a new SPHINCS+ account - a SPHINCS+ Lock Script arguments that can be encoded to CKB quantum safe addresses at higher layers.
    *
    * **Parameters**:
-   * - `js_password: Uint8Array` - The password used to decrypt the master seed and encrypt the child private key, input from js env.
+   * - `js_password: Uint8Array` - The password used to decrypt the master seed and encrypt the child private key, input from js env. Must not be empty or uninitialized.
    *
    * **Returns**:
    * - `Result<String, JsValue>` - A String Promise that resolves to the hex-encoded SPHINCS+ lock argument (processed SPHINCS+ public key) of the account on success,
@@ -97,8 +120,7 @@ export class KeyVault {
    * **Async**: Yes
    * 
    * **Notes**:
-   * - For security reasons, the provided `js_password` buffer is cleared immediately after it
-   *   has been copied into a secure container.
+   * - The provided `js_password` buffer is cleared immediately after use.
    */
   gen_new_account(js_password: Uint8Array): Promise<string>;
   /**
@@ -108,7 +130,7 @@ export class KeyVault {
    * **Parameters**:
    * - `js_seed_phrase: Uint8Array` - The mnemonic phrase as a valid UTF-8 encoded Uint8Array to import, input from js env.
    *    There're only 3 options accepted: 36, 54 or 72 words.
-   * - `js_password: Uint8Array` - The password used to encrypt the translated master seed, input from js env.
+   * - `js_password: Uint8Array` - The password used to encrypt the translated master seed, input from js env. Must not be empty or uninitialized.
    *
    * **Returns**:
    * - `Result<(), JsValue>` - A JavaScript Promise that resolves to `undefined` on success,
@@ -117,15 +139,33 @@ export class KeyVault {
    * **Async**: Yes
    *
    * **Notes**:
-   * - For security reasons, the provided `js_password` and the js_seed_phrase buffers are cleared immediately after they
-   *   have been copied into secure containers.
+   * - The provided `js_password` and the js_seed_phrase buffers are cleared immediately after use.
+   * 
+   * Given NIST new security post-quantum standards categorized as:
+   * 1) Key search on a block cipher with a 128-bit key (e.g. AES128)
+   * 3) Key search on a block cipher with a 192-bit key (e.g. AES192)
+   * 5) Key search on a block cipher with a 256-bit key (e.g. AES 256)
+   * 
+   * First protection layer: For a symetrical encryption practice, the first protection effort SHOULD be the responsibitlity of 
+   * the higher layer impelementation (Quantum Purse Wallet or any other system using this library) to ensure that the encrypted data
+   * is never exposed. It is also the responsibility of the end-users to always lock their device carefully.
+   * 
+   * Second protection layer: Should the first protection layer fall in any situation, the encryption itself stands as the last
+   * resistance against quantum attacks. The passwords provided should be strong enough, so that breaking it requires comparable
+   * resouce to break the NIST category level 1), 3) and 5).
+   * 
+   * For a reference setup:
+   *  - Minimum required 20-character passwords. This puts us at ~128-bit of security in theory (less in reality because of human factors).
+   *  - Scrypt with param {log_n = 17, r = 8, p = 1, len 32} make each effort to guess a password even harder for the attacker. 
+   * 
+   * The theoretical security for this setup, thus starts at level 1) and is not upper limited following how long users passwords can be.
    */
   import_seed_phrase(js_seed_phrase: Uint8Array, js_password: Uint8Array): Promise<void>;
   /**
    * Exports the master seed in the form of a custom bip39 mnemonic phrase. There're only 3 options: 36, 54 or 72 words.
    *
    * **Parameters**:
-   * - `js_password: Uint8Array` - The password used to decrypt the master seed, input from js env.
+   * - `js_password: Uint8Array` - The password used to decrypt the master seed, input from js env. Must not be empty or uninitialized.
    *
    * **Returns**:
    * - `Result<Uint8Array, JsValue>` - A JavaScript Promise that resolves to the mnemonic as a UTF-8 encoded `Uint8Array` on success,
@@ -138,15 +178,14 @@ export class KeyVault {
    * **Async**: Yes
    * 
    * **Notes**:
-   * - For security reasons, the provided `js_password` buffer is cleared immediately after it
-   *   has been copied into a secure container.
+   * - The provided `js_password` buffer is cleared immediately after use.
    */
   export_seed_phrase(js_password: Uint8Array): Promise<Uint8Array>;
   /**
    * Sign and produce a valid signature for the Quantum Resistant lock script.
    *
    * **Parameters**:
-   * - `js_password: Uint8Array` - The password used to decrypt the private key, input from js env.
+   * - `js_password: Uint8Array` - The password used to decrypt the private key, input from js env. Must not be empty or uninitialized.
    * - `lock_args: String` - The hex-encoded lock script's arguments corresponding to the SPHINCS+ public key of the account that signs.
    *    This is a CKB specific thing, check https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0022-transaction-structure/script-p2.png for more information.
    * - `message: Uint8Array` - The message to be signed.
@@ -158,15 +197,14 @@ export class KeyVault {
    * **Async**: Yes
    * 
    * **Notes**:
-   * - For security reasons, the provided `js_password` buffer is cleared immediately after it
-   *   has been copied into a secure container.
+   * - The provided `js_password` buffer is cleared immediately after use.
    */
   sign(js_password: Uint8Array, lock_args: string, message: Uint8Array): Promise<Uint8Array>;
   /**
    * Supporting wallet recovery - quickly derives a list of lock script arguments (processed public keys).
    *
    * **Parameters**:
-   * - `js_password: Uint8Array` - The password used to decrypt the master seed used for account generation, input from js env.
+   * - `js_password: Uint8Array` - The password used to decrypt the master seed used for account generation, input from js env. Must not be empty or uninitialized.
    * - `start_index: u32` - The starting index for derivation.
    * - `count: u32` - The number of sequential lock scripts arguments to derive.
    *
@@ -177,15 +215,14 @@ export class KeyVault {
    * **Async**: Yes
    * 
    * **Notes**:
-   * - For security reasons, the provided `js_password` buffer is cleared immediately after it
-   *   has been copied into a secure container.
+   * - The provided `js_password` buffer is cleared immediately after use.
    */
   try_gen_account_batch(js_password: Uint8Array, start_index: number, count: number): Promise<string[]>;
   /**
-   * Supporting wallet recovery - Recovers the wallet by deriving and storing private keys for the first N accounts.
+   * Supporting wallet recovery - Recovers the wallet by deriving and caching quantum-safe Lock Script arguments for the first N addresses.
    *
    * **Parameters**:
-   * - `js_password: Uint8Array` - The password used to decrypt the master seed, input from js env.
+   * - `js_password: Uint8Array` - The password used to decrypt the master seed, input from js env. Must not be empty or uninitialized.
    * - `count: u32` - The number of accounts to recover (from index 0 to count-1).
    *
    * **Returns**:
@@ -194,8 +231,7 @@ export class KeyVault {
    * **Async**: Yes
    * 
    * **Notes**:
-   * - For security reasons, the provided `js_password` buffer is cleared immediately after it
-   *   has been copied into a secure container.
+   * - The provided `js_password` buffer is cleared immediately after use.
    */
   recover_accounts(js_password: Uint8Array, count: number): Promise<string[]>;
   /**
@@ -229,7 +265,7 @@ export class Util {
    * By default will require at least 20 characters
    *
    * **Parameters**:
-   * - `js_password: Uint8Array` - utf8 serialized password, input from js env.
+   * - `js_password: Uint8Array` - utf8 serialized password, input from js env. Must not be empty or uninitialized.
    *
    * **Returns**:
    * - `Result<u16, JsValue>` - The strength of the password measured in bit on success,
@@ -238,8 +274,7 @@ export class Util {
    * **Async**: no
    * 
    * **Notes**:
-   * - For security reasons, the provided `js_password` buffer is cleared immediately after it
-   *   has been copied into a secure container.
+   * - The provided `js_password` buffer is cleared immediately after use.
    */
   static password_checker(js_password: Uint8Array): number;
 }
@@ -272,11 +307,11 @@ export interface InitOutput {
   readonly __wbindgen_export_4: WebAssembly.Table;
   readonly __wbindgen_export_5: WebAssembly.Table;
   readonly __externref_table_dealloc: (a: number) => void;
-  readonly closure90_externref_shim_multivalue_shim: (a: number, b: number, c: any) => [number, number];
-  readonly closure147_externref_shim: (a: number, b: number, c: any) => void;
-  readonly closure180_externref_shim: (a: number, b: number, c: any) => void;
-  readonly _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__hf4e12d27719227da: (a: number, b: number) => void;
-  readonly closure246_externref_shim: (a: number, b: number, c: any, d: any) => void;
+  readonly closure110_externref_shim_multivalue_shim: (a: number, b: number, c: any) => [number, number];
+  readonly closure143_externref_shim: (a: number, b: number, c: any) => void;
+  readonly closure166_externref_shim: (a: number, b: number, c: any) => void;
+  readonly _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h6a08b498e20e740b: (a: number, b: number) => void;
+  readonly closure242_externref_shim: (a: number, b: number, c: any, d: any) => void;
   readonly __wbindgen_start: () => void;
 }
 

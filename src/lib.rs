@@ -2,9 +2,8 @@
 //!
 //! This module provides a secure password-based authentication interface for managing cryptographic keys in
 //! QuantumPurse project using WebAssembly. It leverages AES-GCM for encryption, Scrypt for key derivation & hashing,
-//! and the SPHINCS+ signature scheme for post-quantum transaction signing. Sensitive data, including
-//! root seed and derived SPHINCS+ private keys, is encrypted and stored in the browser via
-//! IndexedDB, with access authenticated by user-provided passwords.
+//! and the SPHINCS+ signature scheme for post-quantum transaction signing. The master seed is encrypted and stored in
+//! the browser IndexedDB, with access authenticated by user-provided passwords.
 
 use bip39::{Language, Mnemonic};
 use ckb_fips205_utils::{
@@ -17,10 +16,6 @@ use fips205::{
     *,
 };
 use hex::encode;
-use indexed_db_futures::{
-    error::Error as DBError, iter::ArrayMapIter, prelude::*, transaction::TransactionMode,
-};
-use serde_wasm_bindgen;
 use wasm_bindgen::{prelude::*, JsValue};
 use web_sys::js_sys::Uint8Array;
 
@@ -33,7 +28,7 @@ mod types;
 mod utilities;
 
 use crate::constants::{
-    CHILD_KEYS_STORE, KDF_PATH_PREFIX, MASTER_SEED_STORE, MULTISIG_RESERVED_FIELD_VALUE,
+    KDF_PATH_PREFIX, MULTISIG_RESERVED_FIELD_VALUE,
     PUBKEY_NUM, REQUIRED_FIRST_N, THRESHOLD,
 };
 use secure_vec::SecureVec;
@@ -100,13 +95,7 @@ impl KeyVault {
     /// **Async**: Yes
     #[wasm_bindgen]
     pub async fn clear_database() -> Result<(), JsValue> {
-        let db = db::open_db().await.map_err(|e| e.to_jsvalue())?;
-        db::clear_object_store(&db, MASTER_SEED_STORE)
-            .await
-            .map_err(|e| e.to_jsvalue())?;
-        db::clear_object_store(&db, CHILD_KEYS_STORE)
-            .await
-            .map_err(|e| e.to_jsvalue())?;
+        db::clear_all_stores().await.map_err(|e| e.to_jsvalue())?;
         Ok(())
     }
 
@@ -119,38 +108,7 @@ impl KeyVault {
     /// **Async**: Yes
     #[wasm_bindgen]
     pub async fn get_all_sphincs_lock_args() -> Result<Vec<String>, JsValue> {
-        /// Error conversion helper
-        fn map_db_error<T>(result: Result<T, DBError>) -> Result<T, JsValue> {
-            result.map_err(|e| JsValue::from_str(&format!("Database error: {}", e)))
-        }
-
-        let db = db::open_db().await.map_err(|e| e.to_jsvalue())?;
-        let tx = map_db_error(
-            db.transaction(CHILD_KEYS_STORE)
-                .with_mode(TransactionMode::Readonly)
-                .build(),
-        )?;
-        let store = map_db_error(tx.object_store(CHILD_KEYS_STORE))?;
-
-        // Retrieve all accounts
-        let iter: ArrayMapIter<JsValue> = map_db_error(store.get_all().await)?;
-        let mut accounts: Vec<SphincsPlusAccount> = Vec::new();
-        for result in iter {
-            let js_value = map_db_error(result)?;
-            let account: SphincsPlusAccount = serde_wasm_bindgen::from_value(js_value)?;
-            accounts.push(account);
-        }
-
-        // Sort by index
-        accounts.sort_by_key(|account| account.index);
-
-        // Extract lock args in sorted order
-        let lock_args_array: Vec<String> = accounts
-            .into_iter()
-            .map(|account| account.lock_args)
-            .collect();
-
-        Ok(lock_args_array)
+        db::get_all_lock_args().await.map_err(|e| e.to_jsvalue())
     }
 
     /// Check if there's a master seed stored in the indexDB.
@@ -170,7 +128,7 @@ impl KeyVault {
     /// Throw if the master seed already exists.
     ///
     /// **Parameters**:
-    /// - `js_password: Uint8Array` - The password used to encrypt the generated master seed, input from js env.
+    /// - `js_password: Uint8Array` - The password used to encrypt the generated master seed, input from js env. Must not be empty or uninitialized.
     ///
     /// **Returns**:
     /// - `Result<(), JsValue>` - A JavaScript Promise that resolves to `undefined` on success,
@@ -180,6 +138,25 @@ impl KeyVault {
     /// 
     /// **Notes**:
     /// - The provided `js_password` buffer is cleared immediately after use.
+    /// 
+    /// Given NIST new security post-quantum standards categorized as:
+    /// 1) Key search on a block cipher with a 128-bit key (e.g. AES128)
+    /// 3) Key search on a block cipher with a 192-bit key (e.g. AES192)
+    /// 5) Key search on a block cipher with a 256-bit key (e.g. AES 256)
+    /// 
+    /// First protection layer: For a symetrical encryption practice, the first protection effort SHOULD be the responsibitlity of 
+    /// the higher layer impelementation (Quantum Purse Wallet or any other system using this library) to ensure that the encrypted data
+    /// is never exposed. It is also the responsibility of the end-users to always lock their device carefully.
+    /// 
+    /// Second protection layer: Should the first protection layer fall in any situation, the encryption itself stands as the last
+    /// resistance against quantum attacks. The passwords provided should be strong enough, so that breaking it requires comparable
+    /// resouce to break the NIST category level 1), 3) and 5).
+    /// 
+    /// For a reference setup:
+    ///  - Minimum required 20-character passwords. This puts us at ~128-bit of security in theory (less in reality because of human factors).
+    ///  - Scrypt with param {log_n = 17, r = 8, p = 1, len 32} make each effort to guess a password even harder for the attacker. 
+    /// 
+    /// The theoretical security for this setup, thus starts at level 1) and is not upper limited following how long users passwords can be.
     #[wasm_bindgen]
     pub async fn generate_master_seed(&self, js_password: Uint8Array) -> Result<(), JsValue> {
         let password = SecureString::from_uint8array(js_password)
@@ -205,10 +182,10 @@ impl KeyVault {
         Ok(())
     }
 
-    /// Generates a new SPHINCS+ account - a SPHINCS+ child account derived from the master seed, encrypts the private key with the password, and stores it in IndexedDB.
+    /// Generates a new SPHINCS+ account - a SPHINCS+ Lock Script arguments that can be encoded to CKB quantum safe addresses at higher layers.
     ///
     /// **Parameters**:
-    /// - `js_password: Uint8Array` - The password used to decrypt the master seed and encrypt the child private key, input from js env.
+    /// - `js_password: Uint8Array` - The password used to decrypt the master seed and encrypt the child private key, input from js env. Must not be empty or uninitialized.
     ///
     /// **Returns**:
     /// - `Result<String, JsValue>` - A String Promise that resolves to the hex-encoded SPHINCS+ lock argument (processed SPHINCS+ public key) of the account on success,
@@ -235,19 +212,17 @@ impl KeyVault {
         let seed = utilities::decrypt(password.as_ref(), payload)?;
 
         let index = Self::get_all_sphincs_lock_args().await?.len() as u32;
-        let (pub_key, pri_key) = self
+        let (pub_key, _) = self
             .derive_spx_keys(&seed, index)
             .map_err(|e| JsValue::from_str(&format!("Key derivation error: {}", e)))?;
 
-        // Calculate lock script args and encrypt corresponding private key
+        // Calculate lock script args
         let lock_script_args = self.get_lock_scrip_arg(&pub_key);
-        let encrypted_pri = utilities::encrypt(password.as_ref(), &pri_key)?;
 
         // Store to DB
         let account = SphincsPlusAccount {
             index: 0, // Init to 0; Will be set correctly in add_account
             lock_args: encode(lock_script_args),
-            pri_enc: encrypted_pri,
         };
 
         db::add_account(account).await.map_err(|e| e.to_jsvalue())?;
@@ -261,7 +236,7 @@ impl KeyVault {
     /// **Parameters**:
     /// - `js_seed_phrase: Uint8Array` - The mnemonic phrase as a valid UTF-8 encoded Uint8Array to import, input from js env.
     ///    There're only 3 options accepted: 36, 54 or 72 words.
-    /// - `js_password: Uint8Array` - The password used to encrypt the translated master seed, input from js env.
+    /// - `js_password: Uint8Array` - The password used to encrypt the translated master seed, input from js env. Must not be empty or uninitialized.
     ///
     /// **Returns**:
     /// - `Result<(), JsValue>` - A JavaScript Promise that resolves to `undefined` on success,
@@ -271,6 +246,25 @@ impl KeyVault {
     ///
     /// **Notes**:
     /// - The provided `js_password` and the js_seed_phrase buffers are cleared immediately after use.
+    /// 
+    /// Given NIST new security post-quantum standards categorized as:
+    /// 1) Key search on a block cipher with a 128-bit key (e.g. AES128)
+    /// 3) Key search on a block cipher with a 192-bit key (e.g. AES192)
+    /// 5) Key search on a block cipher with a 256-bit key (e.g. AES 256)
+    /// 
+    /// First protection layer: For a symetrical encryption practice, the first protection effort SHOULD be the responsibitlity of 
+    /// the higher layer impelementation (Quantum Purse Wallet or any other system using this library) to ensure that the encrypted data
+    /// is never exposed. It is also the responsibility of the end-users to always lock their device carefully.
+    /// 
+    /// Second protection layer: Should the first protection layer fall in any situation, the encryption itself stands as the last
+    /// resistance against quantum attacks. The passwords provided should be strong enough, so that breaking it requires comparable
+    /// resouce to break the NIST category level 1), 3) and 5).
+    /// 
+    /// For a reference setup:
+    ///  - Minimum required 20-character passwords. This puts us at ~128-bit of security in theory (less in reality because of human factors).
+    ///  - Scrypt with param {log_n = 17, r = 8, p = 1, len 32} make each effort to guess a password even harder for the attacker. 
+    /// 
+    /// The theoretical security for this setup, thus starts at level 1) and is not upper limited following how long users passwords can be.
     #[wasm_bindgen]
     pub async fn import_seed_phrase(
         &self,
@@ -328,7 +322,7 @@ impl KeyVault {
     /// Exports the master seed in the form of a custom bip39 mnemonic phrase. There're only 3 options: 36, 54 or 72 words.
     ///
     /// **Parameters**:
-    /// - `js_password: Uint8Array` - The password used to decrypt the master seed, input from js env.
+    /// - `js_password: Uint8Array` - The password used to decrypt the master seed, input from js env. Must not be empty or uninitialized.
     ///
     /// **Returns**:
     /// - `Result<Uint8Array, JsValue>` - A JavaScript Promise that resolves to the mnemonic as a UTF-8 encoded `Uint8Array` on success,
@@ -374,7 +368,7 @@ impl KeyVault {
     /// Sign and produce a valid signature for the Quantum Resistant lock script.
     ///
     /// **Parameters**:
-    /// - `js_password: Uint8Array` - The password used to decrypt the private key, input from js env.
+    /// - `js_password: Uint8Array` - The password used to decrypt the private key, input from js env. Must not be empty or uninitialized.
     /// - `lock_args: String` - The hex-encoded lock script's arguments corresponding to the SPHINCS+ public key of the account that signs.
     ///    This is a CKB specific thing, check https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0022-transaction-structure/script-p2.png for more information.
     /// - `message: Uint8Array` - The message to be signed.
@@ -406,7 +400,17 @@ impl KeyVault {
             .map_err(|e| e.to_jsvalue())?
             .ok_or_else(|| JsValue::from_str("Account not found"))?;
 
-        let pri_key = utilities::decrypt(password.as_ref(), account.pri_enc)?;
+        // Get and decrypt the master seed
+        let payload = db::get_encrypted_seed()
+            .await
+            .map_err(|e| e.to_jsvalue())?
+            .ok_or_else(|| JsValue::from_str("Master seed not found"))?;
+        let seed = utilities::decrypt(password.as_ref(), payload)?;
+
+        let (_, pri_key) = self
+            .derive_spx_keys(&seed, account.index)
+            .map_err(|e| JsValue::from_str(&format!("Key derivation error: {}", e)))?;
+
         let message_vec = message.to_vec();
 
         match self.variant {
@@ -428,7 +432,7 @@ impl KeyVault {
     /// Supporting wallet recovery - quickly derives a list of lock script arguments (processed public keys).
     ///
     /// **Parameters**:
-    /// - `js_password: Uint8Array` - The password used to decrypt the master seed used for account generation, input from js env.
+    /// - `js_password: Uint8Array` - The password used to decrypt the master seed used for account generation, input from js env. Must not be empty or uninitialized.
     /// - `start_index: u32` - The starting index for derivation.
     /// - `count: u32` - The number of sequential lock scripts arguments to derive.
     ///
@@ -473,10 +477,10 @@ impl KeyVault {
         Ok(lock_args_array)
     }
 
-    /// Supporting wallet recovery - Recovers the wallet by deriving and storing private keys for the first N accounts.
+    /// Supporting wallet recovery - Recovers the wallet by deriving and caching quantum-safe Lock Script arguments for the first N addresses.
     ///
     /// **Parameters**:
-    /// - `js_password: Uint8Array` - The password used to decrypt the master seed, input from js env.
+    /// - `js_password: Uint8Array` - The password used to decrypt the master seed, input from js env. Must not be empty or uninitialized.
     /// - `count: u32` - The number of accounts to recover (from index 0 to count-1).
     ///
     /// **Returns**:
@@ -507,18 +511,16 @@ impl KeyVault {
         let mut lock_args_array: Vec<String> = Vec::new();
         let seed = utilities::decrypt(password.as_ref(), payload)?;
         for index in 0..count {
-            let (pub_key, pri_key) = self
+            let (pub_key, _) = self
                 .derive_spx_keys(&seed, index)
                 .map_err(|e| JsValue::from_str(&format!("Key derivation error: {}", e)))?;
 
-            // Calculate lock script args and encrypt corresponding private key
+            // Calculate lock script args
             let lock_script_args = self.get_lock_scrip_arg(&pub_key);
-            let encrypted_pri = utilities::encrypt(password.as_ref(), &pri_key)?;
             // Store to DB
             let account = SphincsPlusAccount {
                 index: 0, // Init to 0; Will be set correctly in add_account
                 lock_args: encode(lock_script_args),
-                pri_enc: encrypted_pri,
             };
             lock_args_array.push(encode(lock_script_args));
 
@@ -591,7 +593,7 @@ impl Util {
     /// By default will require at least 20 characters
     ///
     /// **Parameters**:
-    /// - `js_password: Uint8Array` - utf8 serialized password, input from js env.
+    /// - `js_password: Uint8Array` - utf8 serialized password, input from js env. Must not be empty or uninitialized.
     ///
     /// **Returns**:
     /// - `Result<u16, JsValue>` - The strength of the password measured in bit on success,
