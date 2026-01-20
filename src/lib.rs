@@ -618,17 +618,8 @@ impl Util {
         let mut has_digit = false;
         let mut has_punctuation = false;
         let mut has_other = false;
-        let mut has_consecutive_repeats = false;
-        let mut prev_char: Option<char> = None;
 
         for c in password.chars() {
-            if let Some(prev) = prev_char {
-                if c == prev {
-                    has_consecutive_repeats = true;
-                }
-            }
-            prev_char = Some(c);
-
             if c == ' ' {
                 has_space = true;
             } else if c.is_ascii_lowercase() {
@@ -644,9 +635,6 @@ impl Util {
             }
         }
 
-        if has_consecutive_repeats {
-            return Err(JsValue::from_str("Password must not contain consecutive repeated characters!"));
-        }
         if !has_uppercase {
             return Err(JsValue::from_str("Password must contain at least one uppercase letter!"));
         }
