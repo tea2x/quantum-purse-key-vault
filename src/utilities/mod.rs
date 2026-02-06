@@ -3,12 +3,11 @@ use super::types::{CipherPayload, ScryptParam};
 use crate::secure_vec::SecureVec;
 use aes_gcm::{
     aead::{Aead, KeyInit},
-    Aes256Gcm, Key, Nonce,
-    AeadInPlace
+    AeadInPlace, Aes256Gcm, Key, Nonce,
 };
 use hex::{decode, encode};
-use scrypt::{scrypt, Params};
 use hkdf::Hkdf;
+use scrypt::{scrypt, Params};
 use sha2::Sha256;
 #[cfg(test)]
 mod tests;
@@ -58,11 +57,7 @@ pub fn derive_scrypt_key(
 ///
 /// **Returns**:
 /// - `Result<SecureVec, String>` - Derived key on success, or an error message on failure.
-pub fn derive_hkdf_key(
-    ikm: &[u8],
-    info: &[u8],
-    output_len: usize,
-) -> Result<SecureVec, String> {
+pub fn derive_hkdf_key(ikm: &[u8], info: &[u8], output_len: usize) -> Result<SecureVec, String> {
     let hkdf = Hkdf::<Sha256>::new(None, ikm);
     let mut okm = SecureVec::new_with_length(output_len);
     hkdf.expand(info, &mut okm)
@@ -124,7 +119,8 @@ pub fn decrypt(password: &[u8], payload: CipherPayload) -> Result<SecureVec, Str
     let nonce = Nonce::from_slice(&iv);
 
     let mut secure_decipher = SecureVec::from_vec(cipher_text);
-    cipher.decrypt_in_place(&nonce, b"", &mut secure_decipher)
+    cipher
+        .decrypt_in_place(&nonce, b"", &mut secure_decipher)
         .map_err(|e| format!("Decryption error: {:?}", e))?;
     Ok(secure_decipher)
 }

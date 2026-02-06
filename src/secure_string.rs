@@ -1,10 +1,9 @@
 /// A secure string type for custom BIP39 menmonic seed words
 /// Used in containing BIP39 component/elemental mnemonic word string
 /// facilitating custom BIP39 for quantumPurse Keyvault
-
-use std::ops::{Deref, /*DerefMut*/};
-use zeroize::Zeroize;
+use std::ops::{Deref /*DerefMut*/};
 use web_sys::js_sys::Uint8Array;
+use zeroize::Zeroize;
 
 #[derive(Debug)]
 pub struct SecureString(String);
@@ -25,7 +24,7 @@ impl SecureString {
         }
         let secure_input = ZeroOnDrop(input);
         let bytes = secure_input.0.to_vec();
-        
+
         match String::from_utf8(bytes) {
             Ok(s) => Ok(SecureString(s)),
             Err(e) => {

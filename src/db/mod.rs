@@ -4,11 +4,11 @@ use super::types::{CipherPayload, SphincsPlusAccount};
 use crate::constants::{CHILD_KEYS_STORE, DB_NAME, MASTER_SEED_KEY, MASTER_SEED_STORE};
 use errors::KeyVaultDBError;
 use indexed_db_futures::{
-    database::Database, prelude::*, transaction::TransactionMode, iter::ArrayMapIter
+    database::Database, iter::ArrayMapIter, prelude::*, transaction::TransactionMode,
 };
-use wasm_bindgen::{JsValue};
+use wasm_bindgen::JsValue;
 
-const VERSION:u8 = 1;
+const VERSION: u8 = 1;
 
 /// Opens the IndexedDB database, creating object stores if necessary.
 ///
@@ -22,7 +22,7 @@ pub async fn open_db() -> Result<Database, KeyVaultDBError> {
         .with_on_blocked(|_event| Ok(()))
         .with_on_upgrade_needed(|event, db| {
             let old_version = event.old_version() as u8;
-            
+
             if old_version < 1 {
                 db.create_object_store(MASTER_SEED_STORE).build()?;
                 db.create_object_store(CHILD_KEYS_STORE).build()?;

@@ -14,17 +14,29 @@ macro_rules! spx_keygen {
         // Spliting the master seed into three length-equal parts.
         let sk_seed: &[u8; N] = $seed[0..N].try_into().expect("Invalid sk seed length");
         let sk_prf: &[u8; N] = $seed[N..2 * N].try_into().expect("Invalid sk prf length");
-        let pk_seed: &[u8; N] = $seed[2 * N..3 * N].try_into().expect("Invalid pk seed length");
+        let pk_seed: &[u8; N] = $seed[2 * N..3 * N]
+            .try_into()
+            .expect("Invalid pk seed length");
 
         let sk_seed_kd: SecureVec = utilities::derive_hkdf_key(sk_seed, path.as_bytes(), N)?;
         let sk_prf_kd: SecureVec = utilities::derive_hkdf_key(sk_prf, path.as_bytes(), N)?;
         let pk_seed_kd: SecureVec = utilities::derive_hkdf_key(pk_seed, path.as_bytes(), N)?;
 
-        let sk_seed_kd_ref: &[u8; N] = sk_seed_kd.as_ref().try_into().map_err(|_| "Invalid sk seed length")?;
-        let sk_prf_kd_ref: &[u8; N] = sk_prf_kd.as_ref().try_into().map_err(|_| "Invalid sk prf length")?;
-        let pk_seed_kd_ref: &[u8; N] = pk_seed_kd.as_ref().try_into().map_err(|_| "Invalid pk seed length")?;
+        let sk_seed_kd_ref: &[u8; N] = sk_seed_kd
+            .as_ref()
+            .try_into()
+            .map_err(|_| "Invalid sk seed length")?;
+        let sk_prf_kd_ref: &[u8; N] = sk_prf_kd
+            .as_ref()
+            .try_into()
+            .map_err(|_| "Invalid sk prf length")?;
+        let pk_seed_kd_ref: &[u8; N] = pk_seed_kd
+            .as_ref()
+            .try_into()
+            .map_err(|_| "Invalid pk seed length")?;
 
-        let (pub_key, pri_key) = <$kg>::keygen_with_seeds(sk_seed_kd_ref, sk_prf_kd_ref, pk_seed_kd_ref);
+        let (pub_key, pri_key) =
+            <$kg>::keygen_with_seeds(sk_seed_kd_ref, sk_prf_kd_ref, pk_seed_kd_ref);
 
         Ok((
             SecureVec::from_vec(pub_key.into_bytes().to_vec()),
@@ -36,7 +48,9 @@ macro_rules! spx_keygen {
 #[macro_export]
 macro_rules! spx_sign {
     ($module:ident, $pri_key:expr, $message_vec:expr, $variant:expr) => {{
-        let pri_key_ref: &[u8; $module::SK_LEN] = $pri_key.as_ref().try_into()
+        let pri_key_ref: &[u8; $module::SK_LEN] = $pri_key
+            .as_ref()
+            .try_into()
             .map_err(|_| JsValue::from_str("Invalid private key length"))?;
 
         let signing_key = $module::PrivateKey::try_from_bytes(&pri_key_ref)

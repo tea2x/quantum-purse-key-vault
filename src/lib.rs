@@ -22,17 +22,16 @@ use web_sys::js_sys::Uint8Array;
 mod constants;
 mod db;
 mod macros;
-mod secure_vec;
 mod secure_string;
+mod secure_vec;
 mod types;
 mod utilities;
 
 use crate::constants::{
-    KDF_PATH_PREFIX, MULTISIG_RESERVED_FIELD_VALUE,
-    PUBKEY_NUM, REQUIRED_FIRST_N, THRESHOLD,
+    KDF_PATH_PREFIX, MULTISIG_RESERVED_FIELD_VALUE, PUBKEY_NUM, REQUIRED_FIRST_N, THRESHOLD,
 };
-use secure_vec::SecureVec;
 use secure_string::SecureString;
+use secure_vec::SecureVec;
 use types::*;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -65,24 +64,44 @@ impl KeyVault {
     /// - `Result<SecureVec, SecureVec>` - The SPHINCS+ key pair on success, or an error message on failure.
     ///
     /// Warning: Proper zeroization of the input seed is the responsibility of the caller.
-    fn derive_spx_keys(
-        &self,
-        seed: &[u8],
-        index: u32,
-    ) -> Result<(SecureVec, SecureVec), String> {
+    fn derive_spx_keys(&self, seed: &[u8], index: u32) -> Result<(SecureVec, SecureVec), String> {
         match self.variant {
-            SpxVariant::Sha2128S => spx_keygen!(slh_dsa_sha2_128s::KG, slh_dsa_sha2_128s::N, seed, index),
-            SpxVariant::Sha2128F => spx_keygen!(slh_dsa_sha2_128f::KG, slh_dsa_sha2_128f::N, seed, index),
-            SpxVariant::Sha2192S => spx_keygen!(slh_dsa_sha2_192s::KG, slh_dsa_sha2_192s::N, seed, index),
-            SpxVariant::Sha2192F => spx_keygen!(slh_dsa_sha2_192f::KG, slh_dsa_sha2_192f::N, seed, index),
-            SpxVariant::Sha2256S => spx_keygen!(slh_dsa_sha2_256s::KG, slh_dsa_sha2_256s::N, seed, index),
-            SpxVariant::Sha2256F => spx_keygen!(slh_dsa_sha2_256f::KG, slh_dsa_sha2_256f::N, seed, index),
-            SpxVariant::Shake128S => spx_keygen!(slh_dsa_shake_128s::KG, slh_dsa_shake_128s::N, seed, index),
-            SpxVariant::Shake128F => spx_keygen!(slh_dsa_shake_128f::KG, slh_dsa_shake_128f::N, seed, index),
-            SpxVariant::Shake192S => spx_keygen!(slh_dsa_shake_192s::KG, slh_dsa_shake_192s::N, seed, index),
-            SpxVariant::Shake192F => spx_keygen!(slh_dsa_shake_192f::KG, slh_dsa_shake_192f::N, seed, index),
-            SpxVariant::Shake256S => spx_keygen!(slh_dsa_shake_256s::KG, slh_dsa_shake_256s::N, seed, index),
-            SpxVariant::Shake256F => spx_keygen!(slh_dsa_shake_256f::KG, slh_dsa_shake_256f::N, seed, index),
+            SpxVariant::Sha2128S => {
+                spx_keygen!(slh_dsa_sha2_128s::KG, slh_dsa_sha2_128s::N, seed, index)
+            }
+            SpxVariant::Sha2128F => {
+                spx_keygen!(slh_dsa_sha2_128f::KG, slh_dsa_sha2_128f::N, seed, index)
+            }
+            SpxVariant::Sha2192S => {
+                spx_keygen!(slh_dsa_sha2_192s::KG, slh_dsa_sha2_192s::N, seed, index)
+            }
+            SpxVariant::Sha2192F => {
+                spx_keygen!(slh_dsa_sha2_192f::KG, slh_dsa_sha2_192f::N, seed, index)
+            }
+            SpxVariant::Sha2256S => {
+                spx_keygen!(slh_dsa_sha2_256s::KG, slh_dsa_sha2_256s::N, seed, index)
+            }
+            SpxVariant::Sha2256F => {
+                spx_keygen!(slh_dsa_sha2_256f::KG, slh_dsa_sha2_256f::N, seed, index)
+            }
+            SpxVariant::Shake128S => {
+                spx_keygen!(slh_dsa_shake_128s::KG, slh_dsa_shake_128s::N, seed, index)
+            }
+            SpxVariant::Shake128F => {
+                spx_keygen!(slh_dsa_shake_128f::KG, slh_dsa_shake_128f::N, seed, index)
+            }
+            SpxVariant::Shake192S => {
+                spx_keygen!(slh_dsa_shake_192s::KG, slh_dsa_shake_192s::N, seed, index)
+            }
+            SpxVariant::Shake192F => {
+                spx_keygen!(slh_dsa_shake_192f::KG, slh_dsa_shake_192f::N, seed, index)
+            }
+            SpxVariant::Shake256S => {
+                spx_keygen!(slh_dsa_shake_256s::KG, slh_dsa_shake_256s::N, seed, index)
+            }
+            SpxVariant::Shake256F => {
+                spx_keygen!(slh_dsa_shake_256f::KG, slh_dsa_shake_256f::N, seed, index)
+            }
         }
     }
 
@@ -135,35 +154,37 @@ impl KeyVault {
     ///   or rejects with a JavaScript error on failure.
     ///
     /// **Async**: Yes
-    /// 
+    ///
     /// **Notes**:
     /// - The provided `js_password` buffer is cleared immediately after use.
-    /// 
+    ///
     /// Given NIST new security post-quantum standards categorized as:
     /// 1) Key search on a block cipher with a 128-bit key (e.g. AES128)
     /// 3) Key search on a block cipher with a 192-bit key (e.g. AES192)
     /// 5) Key search on a block cipher with a 256-bit key (e.g. AES 256)
-    /// 
-    /// First protection layer: For a symetrical encryption practice, the first protection effort SHOULD be the responsibitlity of 
+    ///
+    /// First protection layer: For a symetrical encryption practice, the first protection effort SHOULD be the responsibitlity of
     /// the higher layer impelementation (Quantum Purse Wallet or any other system using this library) to ensure that the encrypted data
     /// is never exposed. It is also the responsibility of the end-users to always lock their device carefully.
-    /// 
+    ///
     /// Second protection layer: Should the first protection layer fall in any situation, the encryption itself stands as the last
     /// resistance against quantum attacks. The passwords provided should be strong enough, so that breaking it requires comparable
     /// resouce to break the NIST category level 1), 3) and 5).
-    /// 
+    ///
     /// For a reference setup:
     ///  - Minimum required 20-character passwords. This puts us at ~128-bit of security in theory (less in reality because of human factors).
-    ///  - Scrypt with param {log_n = 17, r = 8, p = 1, len 32} make each effort to guess a password even harder for the attacker. 
-    /// 
+    ///  - Scrypt with param {log_n = 17, r = 8, p = 1, len 32} make each effort to guess a password even harder for the attacker.
+    ///
     /// The theoretical security for this setup, thus starts at level 1) and is not upper limited following how long users passwords can be.
     #[wasm_bindgen]
     pub async fn generate_master_seed(&self, js_password: Uint8Array) -> Result<(), JsValue> {
-        let password = SecureString::from_uint8array(js_password)
-            .map_err(|e| JsValue::from_str(&e))?;
+        let password =
+            SecureString::from_uint8array(js_password).map_err(|e| JsValue::from_str(&e))?;
 
         if password.is_empty() || password.is_uninitialized() {
-            return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
+            return Err(JsValue::from_str(
+                "Password cannot be empty or uninitialized",
+            ));
         }
 
         if self.has_master_seed().await? {
@@ -192,16 +213,18 @@ impl KeyVault {
     ///   or rejects with a JavaScript error on failure.
     ///
     /// **Async**: Yes
-    /// 
+    ///
     /// **Notes**:
     /// - The provided `js_password` buffer is cleared immediately after use.
     #[wasm_bindgen]
     pub async fn gen_new_account(&self, js_password: Uint8Array) -> Result<String, JsValue> {
-        let password = SecureString::from_uint8array(js_password)
-            .map_err(|e| JsValue::from_str(&e))?;
+        let password =
+            SecureString::from_uint8array(js_password).map_err(|e| JsValue::from_str(&e))?;
 
         if password.is_empty() || password.is_uninitialized() {
-            return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
+            return Err(JsValue::from_str(
+                "Password cannot be empty or uninitialized",
+            ));
         }
 
         // Get and decrypt the master seed
@@ -246,24 +269,24 @@ impl KeyVault {
     ///
     /// **Notes**:
     /// - The provided `js_password` and the js_seed_phrase buffers are cleared immediately after use.
-    /// 
+    ///
     /// Given NIST new security post-quantum standards categorized as:
     /// 1) Key search on a block cipher with a 128-bit key (e.g. AES128)
     /// 3) Key search on a block cipher with a 192-bit key (e.g. AES192)
     /// 5) Key search on a block cipher with a 256-bit key (e.g. AES 256)
-    /// 
-    /// First protection layer: For a symetrical encryption practice, the first protection effort SHOULD be the responsibitlity of 
+    ///
+    /// First protection layer: For a symetrical encryption practice, the first protection effort SHOULD be the responsibitlity of
     /// the higher layer impelementation (Quantum Purse Wallet or any other system using this library) to ensure that the encrypted data
     /// is never exposed. It is also the responsibility of the end-users to always lock their device carefully.
-    /// 
+    ///
     /// Second protection layer: Should the first protection layer fall in any situation, the encryption itself stands as the last
     /// resistance against quantum attacks. The passwords provided should be strong enough, so that breaking it requires comparable
     /// resouce to break the NIST category level 1), 3) and 5).
-    /// 
+    ///
     /// For a reference setup:
     ///  - Minimum required 20-character passwords. This puts us at ~128-bit of security in theory (less in reality because of human factors).
-    ///  - Scrypt with param {log_n = 17, r = 8, p = 1, len 32} make each effort to guess a password even harder for the attacker. 
-    /// 
+    ///  - Scrypt with param {log_n = 17, r = 8, p = 1, len 32} make each effort to guess a password even harder for the attacker.
+    ///
     /// The theoretical security for this setup, thus starts at level 1) and is not upper limited following how long users passwords can be.
     #[wasm_bindgen]
     pub async fn import_seed_phrase(
@@ -271,18 +294,22 @@ impl KeyVault {
         js_seed_phrase: Uint8Array,
         js_password: Uint8Array,
     ) -> Result<(), JsValue> {
-        let password = SecureString::from_uint8array(js_password)
-            .map_err(|e| JsValue::from_str(&e))?;
+        let password =
+            SecureString::from_uint8array(js_password).map_err(|e| JsValue::from_str(&e))?;
 
-        let seed_phrase_str = SecureString::from_uint8array(js_seed_phrase)
-            .map_err(|e| JsValue::from_str(&e))?;
+        let seed_phrase_str =
+            SecureString::from_uint8array(js_seed_phrase).map_err(|e| JsValue::from_str(&e))?;
 
         if password.is_empty() || password.is_uninitialized() {
-            return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
+            return Err(JsValue::from_str(
+                "Password cannot be empty or uninitialized",
+            ));
         }
 
         if seed_phrase_str.is_empty() || seed_phrase_str.is_uninitialized() {
-            return Err(JsValue::from_str("Seed phrase cannot be empty or uninitialized"));
+            return Err(JsValue::from_str(
+                "Seed phrase cannot be empty or uninitialized",
+            ));
         }
 
         let words: Vec<&str> = seed_phrase_str.split_whitespace().collect();
@@ -331,18 +358,20 @@ impl KeyVault {
     /// **Async**: Yes
     ///
     /// **Warning**: Exporting the mnemonic exposes it in JavaScript may pose a security risk.
-    /// 
+    ///
     /// **Async**: Yes
-    /// 
+    ///
     /// **Notes**:
     /// - The provided `js_password` buffer is cleared immediately after use.
     #[wasm_bindgen]
     pub async fn export_seed_phrase(&self, js_password: Uint8Array) -> Result<Uint8Array, JsValue> {
-        let password = SecureString::from_uint8array(js_password)
-            .map_err(|e| JsValue::from_str(&e))?;
+        let password =
+            SecureString::from_uint8array(js_password).map_err(|e| JsValue::from_str(&e))?;
 
         if password.is_empty() || password.is_uninitialized() {
-            return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
+            return Err(JsValue::from_str(
+                "Password cannot be empty or uninitialized",
+            ));
         }
 
         let payload = db::get_encrypted_seed()
@@ -354,7 +383,7 @@ impl KeyVault {
         let size = self.variant.required_entropy_size_component();
         let chunks = entropy.chunks(size);
 
-        let mut combined_mnemonic  = SecureString::new();
+        let mut combined_mnemonic = SecureString::new();
         for chunk in chunks {
             let mnemonic = Mnemonic::from_entropy_in(Language::English, chunk)
                 .map_err(|e| JsValue::from_str(&format!("Export seed error: {}", e)))?;
@@ -378,7 +407,7 @@ impl KeyVault {
     ///   or a JavaScript error on failure.
     ///
     /// **Async**: Yes
-    /// 
+    ///
     /// **Notes**:
     /// - The provided `js_password` buffer is cleared immediately after use.
     #[wasm_bindgen]
@@ -388,11 +417,13 @@ impl KeyVault {
         lock_args: String,
         message: Uint8Array,
     ) -> Result<Uint8Array, JsValue> {
-        let password = SecureString::from_uint8array(js_password)
-            .map_err(|e| JsValue::from_str(&e))?;
+        let password =
+            SecureString::from_uint8array(js_password).map_err(|e| JsValue::from_str(&e))?;
 
         if password.is_empty() || password.is_uninitialized() {
-            return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
+            return Err(JsValue::from_str(
+                "Password cannot be empty or uninitialized",
+            ));
         }
 
         let account = db::get_account(&lock_args)
@@ -414,18 +445,42 @@ impl KeyVault {
         let message_vec = message.to_vec();
 
         match self.variant {
-            SpxVariant::Sha2128S => spx_sign!(slh_dsa_sha2_128s, pri_key, &message_vec, self.variant),
-            SpxVariant::Sha2128F => spx_sign!(slh_dsa_sha2_128f, pri_key, &message_vec, self.variant),
-            SpxVariant::Shake128S => spx_sign!(slh_dsa_shake_128s, pri_key, &message_vec, self.variant),
-            SpxVariant::Shake128F => spx_sign!(slh_dsa_shake_128f, pri_key, &message_vec, self.variant),
-            SpxVariant::Sha2192S => spx_sign!(slh_dsa_sha2_192s, pri_key, &message_vec, self.variant),
-            SpxVariant::Sha2192F => spx_sign!(slh_dsa_sha2_192f, pri_key, &message_vec, self.variant),
-            SpxVariant::Shake192S => spx_sign!(slh_dsa_shake_192s, pri_key, &message_vec, self.variant),
-            SpxVariant::Shake192F => spx_sign!(slh_dsa_shake_192f, pri_key, &message_vec, self.variant),
-            SpxVariant::Sha2256S => spx_sign!(slh_dsa_sha2_256s, pri_key, &message_vec, self.variant),
-            SpxVariant::Sha2256F => spx_sign!(slh_dsa_sha2_256f, pri_key, &message_vec, self.variant),
-            SpxVariant::Shake256S => spx_sign!(slh_dsa_shake_256s, pri_key, &message_vec, self.variant),
-            SpxVariant::Shake256F => spx_sign!(slh_dsa_shake_256f, pri_key, &message_vec, self.variant),
+            SpxVariant::Sha2128S => {
+                spx_sign!(slh_dsa_sha2_128s, pri_key, &message_vec, self.variant)
+            }
+            SpxVariant::Sha2128F => {
+                spx_sign!(slh_dsa_sha2_128f, pri_key, &message_vec, self.variant)
+            }
+            SpxVariant::Shake128S => {
+                spx_sign!(slh_dsa_shake_128s, pri_key, &message_vec, self.variant)
+            }
+            SpxVariant::Shake128F => {
+                spx_sign!(slh_dsa_shake_128f, pri_key, &message_vec, self.variant)
+            }
+            SpxVariant::Sha2192S => {
+                spx_sign!(slh_dsa_sha2_192s, pri_key, &message_vec, self.variant)
+            }
+            SpxVariant::Sha2192F => {
+                spx_sign!(slh_dsa_sha2_192f, pri_key, &message_vec, self.variant)
+            }
+            SpxVariant::Shake192S => {
+                spx_sign!(slh_dsa_shake_192s, pri_key, &message_vec, self.variant)
+            }
+            SpxVariant::Shake192F => {
+                spx_sign!(slh_dsa_shake_192f, pri_key, &message_vec, self.variant)
+            }
+            SpxVariant::Sha2256S => {
+                spx_sign!(slh_dsa_sha2_256s, pri_key, &message_vec, self.variant)
+            }
+            SpxVariant::Sha2256F => {
+                spx_sign!(slh_dsa_sha2_256f, pri_key, &message_vec, self.variant)
+            }
+            SpxVariant::Shake256S => {
+                spx_sign!(slh_dsa_shake_256s, pri_key, &message_vec, self.variant)
+            }
+            SpxVariant::Shake256F => {
+                spx_sign!(slh_dsa_shake_256f, pri_key, &message_vec, self.variant)
+            }
         }
     }
 
@@ -439,9 +494,9 @@ impl KeyVault {
     /// **Returns**:
     /// - `Result<Vec<String>, JsValue>` - A list of lock script arguments on success,
     ///   or a JavaScript error on failure.
-    /// 
+    ///
     /// **Async**: Yes
-    /// 
+    ///
     /// **Notes**:
     /// - The provided `js_password` buffer is cleared immediately after use.
     #[wasm_bindgen]
@@ -451,11 +506,13 @@ impl KeyVault {
         start_index: u32,
         count: u32,
     ) -> Result<Vec<String>, JsValue> {
-        let password = SecureString::from_uint8array(js_password)
-            .map_err(|e| JsValue::from_str(&e))?;
+        let password =
+            SecureString::from_uint8array(js_password).map_err(|e| JsValue::from_str(&e))?;
 
         if password.is_empty() || password.is_uninitialized() {
-            return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
+            return Err(JsValue::from_str(
+                "Password cannot be empty or uninitialized",
+            ));
         }
 
         // Get and decrypt the master seed
@@ -487,7 +544,7 @@ impl KeyVault {
     /// - `Result<(), JsValue>` - A list of newly generated sphincs+ lock script arguments (processed public keys) on success, or a JavaScript error on failure.
     ///
     /// **Async**: Yes
-    /// 
+    ///
     /// **Notes**:
     /// - The provided `js_password` buffer is cleared immediately after use.
     #[wasm_bindgen]
@@ -496,11 +553,13 @@ impl KeyVault {
         js_password: Uint8Array,
         count: u32,
     ) -> Result<Vec<String>, JsValue> {
-        let password = SecureString::from_uint8array(js_password)
-            .map_err(|e| JsValue::from_str(&e))?;
+        let password =
+            SecureString::from_uint8array(js_password).map_err(|e| JsValue::from_str(&e))?;
 
         if password.is_empty() || password.is_uninitialized() {
-            return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
+            return Err(JsValue::from_str(
+                "Password cannot be empty or uninitialized",
+            ));
         }
 
         // Get and decrypt the master seed
@@ -600,16 +659,18 @@ impl Util {
     ///   or a JavaScript error on failure.
     ///
     /// **Async**: no
-    /// 
+    ///
     /// **Notes**:
     /// - The provided `js_password` buffer is cleared immediately after use.
     #[wasm_bindgen]
     pub fn password_checker(js_password: Uint8Array) -> Result<u32, JsValue> {
-        let password = SecureString::from_uint8array(js_password)
-            .map_err(|e| JsValue::from_str(&e))?;
+        let password =
+            SecureString::from_uint8array(js_password).map_err(|e| JsValue::from_str(&e))?;
 
         if password.is_empty() || password.is_uninitialized() {
-            return Err(JsValue::from_str("Password cannot be empty or uninitialized"));
+            return Err(JsValue::from_str(
+                "Password cannot be empty or uninitialized",
+            ));
         }
 
         let mut has_space = false;
@@ -636,19 +697,29 @@ impl Util {
         }
 
         if !has_uppercase {
-            return Err(JsValue::from_str("Password must contain at least one uppercase letter!"));
+            return Err(JsValue::from_str(
+                "Password must contain at least one uppercase letter!",
+            ));
         }
         if !has_lowercase {
-            return Err(JsValue::from_str("Password must contain at least one lowercase letter!"));
+            return Err(JsValue::from_str(
+                "Password must contain at least one lowercase letter!",
+            ));
         }
         if !has_digit {
-            return Err(JsValue::from_str("Password must contain at least one digit!"));
+            return Err(JsValue::from_str(
+                "Password must contain at least one digit!",
+            ));
         }
         if !has_punctuation {
-            return Err(JsValue::from_str("Password must contain at least one symbol!"));
+            return Err(JsValue::from_str(
+                "Password must contain at least one symbol!",
+            ));
         }
         if password.len() < 20 {
-            return Err(JsValue::from_str("Password must contain at least 20 characters!"));
+            return Err(JsValue::from_str(
+                "Password must contain at least 20 characters!",
+            ));
         }
 
         let character_set_size = if has_other {
