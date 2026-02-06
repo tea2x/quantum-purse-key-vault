@@ -51,7 +51,7 @@ impl KeyVault {
     /// - `KeyVault` - A new instance of the struct.
     #[wasm_bindgen(constructor)]
     pub fn new(variant: SpxVariant) -> Self {
-        KeyVault { variant: variant }
+        KeyVault { variant }
     }
 
     /// To derive SPHINCS+ key pair. One master seed can derive multiple child index-based SPHINCS+ key pairs on demand.
@@ -325,10 +325,8 @@ impl KeyVault {
         }
 
         let mut combined_entropy = SecureVec::new_with_length(0);
-        let mut index: u8 = 0;
         let size = self.variant.required_bip39_size_in_word_component();
-        for chunk in words.chunks(size) {
-            index += 1;
+        for (index, chunk) in (0_u8..).zip(words.chunks(size)) {
             let chunk_str = SecureString::from_string(chunk.join(" "));
             let mnemonic = Mnemonic::parse_in(Language::English, &*chunk_str).map_err(|e| {
                 JsValue::from_str(&format!(
@@ -606,7 +604,7 @@ impl KeyVault {
         let mut script_args_hasher = Hasher::script_args_hasher();
         script_args_hasher.update(&all_in_one_config);
         script_args_hasher.update(&[sign_flag]);
-        script_args_hasher.update(&public_key);
+        script_args_hasher.update(public_key);
         script_args_hasher.hash()
     }
 }

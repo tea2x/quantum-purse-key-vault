@@ -37,13 +37,13 @@ pub fn get_random_bytes(length: usize) -> Result<SecureVec, getrandom_v03::Error
 /// Warning: Proper zeroization of the input is the responsibility of the caller.
 pub fn derive_scrypt_key(
     input: &[u8],
-    salt: &Vec<u8>,
+    salt: &[u8],
     param: &ScryptParam,
 ) -> Result<SecureVec, String> {
     let mut scrypt_key = SecureVec::new_with_length(param.len);
     let scrypt_param = Params::new(param.log_n, param.r, param.p, param.len)
         .map_err(|e| format!("Scrypt params error: {:?}", e))?;
-    scrypt(input, &salt, &scrypt_param, &mut scrypt_key)
+    scrypt(input, salt, &scrypt_param, &mut scrypt_key)
         .map_err(|e| format!("Scrypt error: {:?}", e))?;
     Ok(scrypt_key)
 }
@@ -120,7 +120,7 @@ pub fn decrypt(password: &[u8], payload: CipherPayload) -> Result<SecureVec, Str
 
     let mut secure_decipher = SecureVec::from_vec(cipher_text);
     cipher
-        .decrypt_in_place(&nonce, b"", &mut secure_decipher)
+        .decrypt_in_place(nonce, b"", &mut secure_decipher)
         .map_err(|e| format!("Decryption error: {:?}", e))?;
     Ok(secure_decipher)
 }
